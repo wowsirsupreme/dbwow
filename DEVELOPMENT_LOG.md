@@ -1,5 +1,11 @@
 # WOWDB Development Log
 
+## 30 October 2026 — Release 0.2.1: security updates
+
+* Vercel refused to deploy because Next.js 15.1.6 has published security vulnerabilities. Upgraded to Next.js 15.5.28 (latest patched 15.x release) and jsPDF to 4.2.1.
+* SheetJS (`xlsx`) stays at 0.18.5: the fixed 0.20.3 is published only on cdn.sheetjs.com, not npm. Its advisories concern parsing malicious spreadsheet files; in WOWDB, files are parsed only in the user's own browser. To upgrade on a machine that can reach that site: `npm install https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`.
+* Results unchanged: 45/45 engine tests; 10/10 acceptance and 12/12 feature steps on both builds.
+
 ## 30 October 2026 — Release 0.2.0: interface matched to the reference screenshots
 
 The interface was compared screen by screen with the five reference screenshots (Table Design, Query Design, Edit Relationships, Form Design, Report Design) and brought into line with them.
@@ -32,7 +38,7 @@ The interface was compared screen by screen with the five reference screenshots 
 
 ### Environment and decisions
 
-* Started a new project (no existing code). Node 22, Next.js 15.1, React 18.3, TypeScript 5.6 in strict mode.
+* Started a new project (no existing code). Node 22, Next.js 15.1 (15.5.28 from release 0.2.1), React 18.3, TypeScript 5.6 in strict mode.
 * Engine: sql.js 1.12 (SQLite 3.45 compiled to WebAssembly). Tables are created `STRICT` so SQLite itself rejects wrong data types.
 * One codebase, two builds: Next.js static export and a Vite single-file portable build. Only the entry points differ (how the WebAssembly binary is found).
 * All object definitions are stored inside the SQLite file (`_wow_objects`, `_wow_meta`), so a database is one portable file.

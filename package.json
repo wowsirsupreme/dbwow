@@ -1,6 +1,6 @@
 {
   "name": "wowdb",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "WOWDB - an educational, Access-inspired relational database environment built on real SQLite (sql.js/WebAssembly).",
   "scripts": {
@@ -14,9 +14,9 @@
     "test:e2e": "npm run build:portable && node tests/e2e/acceptance.cjs tests/e2e/out && node tests/e2e/features.cjs tests/e2e/out"
   },
   "dependencies": {
-    "jspdf": "2.5.2",
+    "jspdf": "4.2.1",
     "lucide-react": "0.460.0",
-    "next": "15.1.6",
+    "next": "15.5.28",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "sql.js": "1.12.0",
