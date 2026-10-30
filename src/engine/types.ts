@@ -1,7 +1,7 @@
-// Core type definitions for WOWDB.
+// Core type definitions for DBWOW.
 // The real data lives in SQLite tables. Object definitions (field metadata,
 // queries, forms, reports, layouts) live in the `_wow_objects` catalogue table
-// inside the SAME SQLite file, so one .wowdb file is the whole database project.
+// inside the SAME SQLite file, so one .dbwow file is the whole database project.
 
 export type DataType =
   | 'Short Text'

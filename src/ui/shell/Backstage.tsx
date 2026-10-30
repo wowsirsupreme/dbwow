@@ -27,13 +27,13 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
     <div className="backstage" data-testid="backstage">
       <div className="bs-side">
         {project && <button className="back" onClick={back} aria-label="Back"><ArrowLeft size={20} /></button>}
-        {!project && <div style={{ padding: '6px 22px 16px', fontWeight: 700, fontSize: 18, letterSpacing: 0.5 }}>WOWDB</div>}
+        {!project && <div style={{ padding: '6px 22px 16px', fontWeight: 700, fontSize: 18, letterSpacing: 0.5 }}>DBWOW</div>}
         <button className={page === 'info' ? 'active' : ''} disabled={!project} onClick={() => setPage('info')}>Info</button>
         <button className={page === 'new' ? 'active' : ''} onClick={() => setPage('new')}>New</button>
         <button className={page === 'open' ? 'active' : ''} onClick={() => setPage('open')}>Open</button>
         <button disabled={!project} onClick={() => { ops.save(); back(); }}>Save</button>
         <button disabled={!project} onClick={ops.saveAs}>Save As</button>
-        <button disabled={!project} onClick={ops.downloadCopy}>Download (.wowdb)</button>
+        <button disabled={!project} onClick={ops.downloadCopy}>Download (.dbwow)</button>
         <button disabled={!project} onClick={ops.exportDb}>Export</button>
         <button disabled={!project} onClick={ops.print}>Print</button>
         <button disabled={!project} onClick={ops.close}>Close</button>
@@ -53,7 +53,7 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
               <button className="tile" onClick={ops.backup}><span className="t">Back Up Database</span><span className="d">Keep a copy in the browser and/or download it.</span></button>
               <button className="tile" onClick={ops.restore}><span className="t">Restore</span><span className="d">Go back to an earlier backup.</span></button>
             </div>
-            <p className="muted small mt-3">Every change is saved automatically to this browser&apos;s storage. Use Download to keep a .wowdb file (a standard SQLite database) on your computer or USB drive. Project ID: {projectId}</p>
+            <p className="muted small mt-3">Every change is saved automatically to this browser&apos;s storage. Use Download to keep a .dbwow file (a standard SQLite database) on your computer or USB drive. Project ID: {projectId}</p>
           </div>
         )}
         {page === 'new' && (
@@ -71,7 +71,7 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
         {page === 'open' && (
           <div>
             <h1>Open</h1>
-            <button className="btn btn-primary mb-3" onClick={ops.openFile}><FolderOpen size={14} style={{ display: 'inline', marginRight: 6 }} />Browse for a .wowdb / .db / .sqlite file…</button>
+            <button className="btn btn-primary mb-3" onClick={ops.openFile}><FolderOpen size={14} style={{ display: 'inline', marginRight: 6 }} />Browse for a .dbwow / .wowdb / .db / .sqlite file…</button>
             <h2>Recent (stored in this browser)</h2>
             <div className="recent">
               {recent.map((r) => (

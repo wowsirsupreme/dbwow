@@ -1,4 +1,4 @@
-// Small helper for driving WOWDB in headless Chromium (Playwright).
+// Small helper for driving DBWOW in headless Chromium (Playwright).
 const { chromium } = require('playwright');
 const path = require('node:path');
 async function start(opts = {}) {

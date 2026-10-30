@@ -1,8 +1,8 @@
 {
-  "name": "wowdb",
-  "version": "0.2.1",
+  "name": "dbwow",
+  "version": "0.3.0",
   "private": true,
-  "description": "WOWDB - an educational, Access-inspired relational database environment built on real SQLite (sql.js/WebAssembly).",
+  "description": "DBWOW - an educational, Access-inspired relational database environment built on real SQLite (sql.js/WebAssembly).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "postinstall": "node scripts/copy-wasm.mjs",
-    "test:e2e": "npm run build:portable && node tests/e2e/acceptance.cjs tests/e2e/out && node tests/e2e/features.cjs tests/e2e/out"
+    "test:e2e": "npm run build:portable && node tests/e2e/acceptance.cjs tests/e2e/out && node tests/e2e/features.cjs tests/e2e/out && node tests/e2e/learning.cjs tests/e2e/out"
   },
   "dependencies": {
     "jspdf": "4.2.1",

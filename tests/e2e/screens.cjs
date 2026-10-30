@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const out = process.argv[2] || 'docs/screenshots';
 fs.mkdirSync(out, { recursive: true });
 (async () => {
-  const { browser, page, errors } = await start(process.env.WOWDB_URL ? { url: process.env.WOWDB_URL } : {});
+  const { browser, page, errors } = await start(process.env.DBWOW_URL ? { url: process.env.DBWOW_URL } : {});
   const shot = async (n) => { await page.waitForTimeout(450); await page.screenshot({ path: `${out}/${n}.png` }); console.log('shot', n); };
   const closeAll = async () => { for (;;) { const x = await page.$('.doc-tab .x'); if (!x) break; await x.click(); await page.waitForTimeout(150); const no = await page.$('.dlg button:has-text("No")'); if (no) await no.click(); } };
   const ribbonTab = (label) => page.click(`.rtab:text-is("${label}")`);

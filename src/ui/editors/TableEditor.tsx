@@ -10,6 +10,7 @@ import { useEditorCommands } from '../commands';
 import { confirmBox, errorBox, promptBox, yesNoCancel } from '../dialogs';
 import { useHistory } from '../useHistory';
 import { LearnTip } from '../shell/LearnTip';
+import { useLearning } from '../learning';
 
 export function TableEditor({ tab, active, project: p }: { tab: Tab; active: boolean; project: WowProject }) {
   const updateTab = useApp((s) => s.updateTab);
@@ -23,6 +24,9 @@ export function TableEditor({ tab, active, project: p }: { tab: Tab; active: boo
   const isNew = !tab.name;
 
   useEffect(() => { if (!!tab.dirty !== dirty) updateTab(tab.id, { dirty }); }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+  // let the Practical panel see unsaved designs ("save to confirm" steps)
+  useEffect(() => { useLearning.getState().setDraft(tab.id, dirty ? { name: tab.name, def } : null); }, [dirty, def, tab.id, tab.name]);
+  useEffect(() => () => useLearning.getState().setDraft(tab.id, null), [tab.id]);
   // pick up external changes (e.g. rename) when not dirty
   useEffect(() => {
     if (dirty || !tab.name) return;
@@ -39,7 +43,7 @@ export function TableEditor({ tab, active, project: p }: { tab: Tab; active: boo
     }
     let d: TableDef = { ...def, name, fields: def.fields.filter((f) => f.name.trim()) };
     if (!d.fields.some((f) => f.primaryKey)) {
-      const r = await yesNoCancel('There is no primary key defined.\n\nAlthough a primary key isn\'t required, it\'s highly recommended. A table must have a primary key for you to define a relationship between this table and other tables in the database.\n\nDo you want to create a primary key now?', 'WOWDB');
+      const r = await yesNoCancel('There is no primary key defined.\n\nAlthough a primary key isn\'t required, it\'s highly recommended. A table must have a primary key for you to define a relationship between this table and other tables in the database.\n\nDo you want to create a primary key now?', 'DBWOW');
       if (r === 'cancel') return false;
       if (r === 'yes') {
         const auto = d.fields.find((f) => f.type === 'AutoNumber');
@@ -66,7 +70,7 @@ export function TableEditor({ tab, active, project: p }: { tab: Tab; active: boo
       useApp.getState().setStatus(`Table "${saved.name}" saved.`);
       return true;
     } catch (e) {
-      await errorBox(e, 'WOWDB - the table was not saved');
+      await errorBox(e, 'DBWOW - the table was not saved');
       return false;
     }
   }, [def, tab, p, isNew, hist, updateTab]);
@@ -74,7 +78,7 @@ export function TableEditor({ tab, active, project: p }: { tab: Tab; active: boo
   const switchView = useCallback(async (view: string) => {
     if (view === tab.view) return;
     if (view === 'datasheet' && (dirty || isNew)) {
-      const ok = await confirmBox('You must first save the table.\n\nDo you want to save the table now?', { title: 'WOWDB' });
+      const ok = await confirmBox('You must first save the table.\n\nDo you want to save the table now?', { title: 'DBWOW' });
       if (!ok || !(await save())) return;
     }
     updateTab(tab.id, { view });

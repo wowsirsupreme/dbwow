@@ -14,6 +14,7 @@ import { useApp, saveNow, type Tab } from './store';
 import { runCommand, runCommandAsync, useGlobalCommands, useCmdState } from './commands';
 import { DialogLayer, ContextMenuLayer, openDialog, messageBox, errorBox, confirmBox, promptBox, yesNoCancel, askParameters } from './dialogs';
 import { Ribbon, useCtxBand } from './shell/Ribbon';
+import { PracticalPanel, RankBadge, Toasts, trackEvent, useLearningTracker } from './learning';
 import { NavPane } from './shell/NavPane';
 import { Backstage, type BackstageOps } from './shell/Backstage';
 import { TableEditor } from './editors/TableEditor';
@@ -28,6 +29,7 @@ import { runAction } from './actions';
 function newId() { return 'db_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 export default function App() {
+  useLearningTracker();
   const project = useApp((s) => s.project);
   const backstage = useApp((s) => s.backstage);
   const tabs = useApp((s) => s.tabs);
@@ -60,7 +62,7 @@ export default function App() {
     },
     newSample: async (sid) => {
       if (project && !(await confirmCloseAll())) return;
-      try { useApp.getState().setStatus('Building sample database…'); const p = await buildSample(sid as SampleId); await adopt(p, newId()); useApp.getState().openTab({ kind: 'relationships', name: 'Relationships', title: 'Relationships', view: 'design' }); useApp.getState().setStatus(`${p.name} sample created — fictional data only.`); } catch (e) { void errorBox(e); }
+      try { useApp.getState().setStatus('Building sample database…'); const p = await buildSample(sid as SampleId); await adopt(p, newId()); trackEvent(`sample:${sid}`); useApp.getState().openTab({ kind: 'relationships', name: 'Relationships', title: 'Relationships', view: 'design' }); useApp.getState().setStatus(`${p.name} sample created — fictional data only.`); } catch (e) { void errorBox(e); }
     },
     openStored: async (id) => {
       if (id === useApp.getState().projectId) { useApp.getState().setBackstage(false); return; }
@@ -68,18 +70,18 @@ export default function App() {
       try { const s = await loadProject(id); if (!s) throw new Error('That database was not found in browser storage.'); const p = await WowProject.open(s.bytes); await adopt(p, id, false); } catch (e) { void errorBox(e, 'Could not open the database'); }
     },
     openFile: async () => {
-      const f = await pickFile('.wowdb,.db,.sqlite,.sqlite3,.db3');
+      const f = await pickFile('.dbwow,.wowdb,.db,.sqlite,.sqlite3,.db3');
       if (!f) return;
       if (project && !(await confirmCloseAll())) return;
       try {
         const bytes = new Uint8Array(await f.arrayBuffer());
         const head = new TextDecoder().decode(bytes.slice(0, 15));
-        if (head !== 'SQLite format 3') throw new Error(`"${f.name}" is not a SQLite / WOWDB database file.`);
+        if (head !== 'SQLite format 3') throw new Error(`"${f.name}" is not a SQLite / DBWOW database file.`);
         const p = await WowProject.open(bytes);
         if (!p.getMeta('name') || p.getMeta('name') === 'Imported database') p.setMeta('name', f.name.replace(/\.[^.]+$/, ''), true);
         const integ = String(p.db.scalar('PRAGMA integrity_check'));
         await adopt(p, newId());
-        if (integ !== 'ok') void messageBox(`The file opened, but SQLite reported problems: ${integ}\n\nUse Database Tools > Compact & Repair.`, 'WOWDB', 'warn');
+        if (integ !== 'ok') void messageBox(`The file opened, but SQLite reported problems: ${integ}\n\nUse Database Tools > Compact & Repair.`, 'DBWOW', 'warn');
       } catch (e) { void errorBox(e, 'Could not open the file'); }
     },
     save: async () => { const id = useApp.getState().activeTabId; if (id) await runCommandAsync('save', id); await saveNow(); useApp.getState().setStatus('All changes saved.'); },
@@ -93,7 +95,7 @@ export default function App() {
       await adopt(p2, newId());
       useApp.getState().setStatus(`Saved as "${name}". You are now working in the copy.`);
     },
-    downloadCopy: () => { if (project) { downloadBytes(project.db.export(), `${safeFileName(project.name)}.wowdb`, 'application/x-sqlite3'); useApp.getState().setStatus('Downloaded a .wowdb file (a standard SQLite database).'); } },
+    downloadCopy: () => { if (project) { downloadBytes(project.db.export(), `${safeFileName(project.name)}.dbwow`, 'application/x-sqlite3'); trackEvent('backup'); useApp.getState().setStatus('Downloaded a .dbwow file (a standard SQLite database).'); } },
     properties: async () => {
       if (!project) return;
       const r = await openDialog<{ name: string; description: string }>('Database Properties', (close) => <PropertiesDialog p={project} close={close} />, 520);
@@ -110,7 +112,7 @@ export default function App() {
       if (!(await confirmCloseAll())) return;
       try { const r = compactAndRepair(project); await saveNow(); void messageBox(`Compact & Repair finished.\n\nSize before: ${(r.before / 1024).toFixed(1)} KB\nSize after: ${(r.after / 1024).toFixed(1)} KB\nIntegrity check: ${r.integrity}`, 'Compact & Repair'); } catch (e) { void errorBox(e); }
     },
-    exportDb: () => { if (project) void openDialog<string>('Export', (close) => <ExportDialog p={project} close={close} />, 460).then((m) => m && useApp.getState().setStatus(m)); },
+    exportDb: () => { if (project) void openDialog<string>('Export', (close) => <ExportDialog p={project} close={close} />, 460).then((m) => { if (m) { useApp.getState().setStatus(m); trackEvent('export'); } }); },
     print: () => {
       const t = useApp.getState().tabs.find((x) => x.id === useApp.getState().activeTabId);
       useApp.getState().setBackstage(false);
@@ -135,7 +137,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try { await loadSqlJs(); }
-      catch (e) { setBootErr(`The SQLite engine could not start in this browser (${(e as Error).message}). WOWDB needs WebAssembly. Try an up-to-date Chrome, Edge or Firefox, or open the portable WOWDB file directly.`); setBooting(false); return; }
+      catch (e) { setBootErr(`The SQLite engine could not start in this browser (${(e as Error).message}). DBWOW needs WebAssembly. Try an up-to-date Chrome, Edge or Firefox, or open the portable DBWOW file directly.`); setBooting(false); return; }
       try {
         const id = lastOpened();
         if (id) { const s = await loadProject(id); if (s) { const p = await WowProject.open(s.bytes); useApp.getState().setProject(p, id); } }
@@ -205,10 +207,10 @@ export default function App() {
       const src = await readImportFile(f);
       if (src.kind !== 'sql' && !(src.sheets ?? []).some((s) => s.rows.length)) { void messageBox('The file contains no rows to import.', 'Import', 'warn'); return; }
       const res = await openDialog('Import Wizard — ' + f.name, (close) => <ImportWizard p={project} src={src} close={close} />, 760);
-      if (res && typeof res === 'object' && 'table' in res) { const sm = res as { table: string; inserted: number }; useApp.getState().setStatus(`Imported ${sm.inserted} row(s) into ${sm.table}.`); openObject('table', sm.table, 'datasheet'); }
+      if (res && typeof res === 'object' && 'table' in res) { const sm = res as { table: string; inserted: number }; useApp.getState().setStatus(`Imported ${sm.inserted} row(s) into ${sm.table}.`); trackEvent('import'); openObject('table', sm.table, 'datasheet'); }
     } catch (e) { void errorBox(e, 'Import failed'); }
   };
-  const doExport = (format?: 'csv' | 'xlsx' | 'json' | 'sql', source?: string) => { if (project) void openDialog<string>('Export', (close) => <ExportDialog p={project} initialSource={source ?? sourceGuess()} initialFormat={format} close={close} />, 460).then((m) => m && useApp.getState().setStatus(m)); };
+  const doExport = (format?: 'csv' | 'xlsx' | 'json' | 'sql', source?: string) => { if (project) void openDialog<string>('Export', (close) => <ExportDialog p={project} initialSource={source ?? sourceGuess()} initialFormat={format} close={close} />, 460).then((m) => { if (m) { useApp.getState().setStatus(m); trackEvent('export'); } }); };
 
   const has = !!project;
   useGlobalCommands({
@@ -248,7 +250,7 @@ export default function App() {
     'help.learning': () => openLearning('topic:intro'), 'help.tutorials': () => openLearning('prac:schooldb'), 'help.exercises': () => openLearning('prac:lib-b'),
     'help.sqlref': () => openLearning('ref:sql'), 'help.shortcuts': () => openLearning('ref:keys'),
     'help.learningMode': { run: () => useApp.getState().setLearningMode(!useApp.getState().learningMode), checked: useApp.getState().learningMode },
-    'help.about': () => void messageBox(<div><b>WOWDB</b> — an educational database development environment inspired by desktop database applications.<br /><br />Real relational engine: SQLite {project ? String(project.db.scalar('select sqlite_version()')) : ''} compiled to WebAssembly. Your databases are stored in this browser and can be downloaded as standard SQLite files.<br /><br />Created for classroom teaching and practical database training (WOW Sir). Not affiliated with Microsoft; &quot;Access&quot; is a trademark of Microsoft Corporation.<br /><br />Non-commercial educational project.</div>, 'About WOWDB'),
+    'help.about': () => void messageBox(<div><b>DBWOW</b> — an educational database development environment inspired by desktop database applications.<br /><br />Real relational engine: SQLite {project ? String(project.db.scalar('select sqlite_version()')) : ''} compiled to WebAssembly. Your databases are stored in this browser and can be downloaded as standard SQLite files.<br /><br />Created for classroom teaching and practical database training (WOW Sir). Not affiliated with Microsoft; &quot;Access&quot; is a trademark of Microsoft Corporation.<br /><br />Non-commercial educational project.</div>, 'About DBWOW'),
     'file.new': ops.newBlank, 'file.open': () => { useApp.getState().setBackstage(true); },
     save: { run: () => ops.save(), enabled: has },
   });
@@ -290,8 +292,8 @@ export default function App() {
     useApp.getState().closeTab(id);
   };
 
-  if (booting) return <div className="empty-ws" style={{ height: '100vh' }}>Starting WOWDB…</div>;
-  if (bootErr && !project) return <div className="empty-ws" style={{ height: '100vh', padding: 24 }}><div style={{ maxWidth: 560 }}><h1 style={{ fontSize: 22, color: 'var(--accent-dark)', marginBottom: 10 }}>WOWDB</h1><p>{bootErr}</p></div></div>;
+  if (booting) return <div className="empty-ws" style={{ height: '100vh' }}>Starting DBWOW…</div>;
+  if (bootErr && !project) return <div className="empty-ws" style={{ height: '100vh', padding: 24 }}><div style={{ maxWidth: 560 }}><h1 style={{ fontSize: 22, color: 'var(--accent-dark)', marginBottom: 10 }}>DBWOW</h1><p>{bootErr}</p></div></div>;
 
   return (
     <div className="app">
@@ -303,6 +305,8 @@ export default function App() {
         <Workspace closeTab={(id) => void closeTabSafe(id)} openSample={(id) => void ops.newSample(id)} />
         {(backstage || !project) && <Backstage ops={ops} />}
       </div>
+      {project && <PracticalPanel openInCentre={(id) => openLearning(`prac:${id}`)} openSample={(id) => void ops.newSample(id)} />}
+      <Toasts />
       <StatusBar />
       <DialogLayer />
       <ContextMenuLayer />
@@ -327,16 +331,17 @@ function TitleBar({ onSave }: { onSave: () => void }) {
   const can = (c: string) => { const f = (activeTabId ? cs.editors[activeTabId]?.[c] : undefined) ?? cs.global[c]; return !!f && f.enabled; };
   return (
     <div className="titlebar">
-      <div className="brand"><span className="brand-mark">W</span>WOWDB</div>
+      <div className="brand"><span className="brand-mark">W</span>DBWOW</div>
       <div className="qat" aria-label="Quick Access Toolbar">
         <button title="Save (Ctrl+S)" disabled={!project} onClick={onSave}><Save size={15} /></button>
         <button title="Undo (Ctrl+Z)" disabled={!can('undo')} onClick={() => runCommand('undo', activeTabId)}><Undo2 size={15} /></button>
         <button title="Redo (Ctrl+Y)" disabled={!can('redo')} onClick={() => runCommand('redo', activeTabId)}><Redo2 size={15} /></button>
       </div>
       {band && <div className="ctx-band" style={{ left: band.left, width: band.width }} aria-hidden>{band.label}</div>}
-      <div className="title-text" ref={titleRef} style={band && titleLeft !== null && band.left + band.width > window.innerWidth / 2 - 160 ? { textAlign: 'left', paddingLeft: Math.max(0, band.left + band.width + 24 - titleLeft) } : undefined}>{project ? `${activeTitle ? activeTitle + ' : ' : ''}${project.name} : Database — WOWDB` : 'WOWDB — Educational Database Environment'}</div>
+      <div className="title-text" ref={titleRef} style={band && titleLeft !== null && band.left + band.width > window.innerWidth / 2 - 160 ? { textAlign: 'left', paddingLeft: Math.max(0, band.left + band.width + 24 - titleLeft) } : undefined}>{project ? `${activeTitle ? activeTitle + ' : ' : ''}${project.name} : Database — DBWOW` : 'DBWOW — Educational Database Environment'}</div>
       <div className="title-right">
         {project && <span title="Your changes are stored in this browser automatically"><span className={'save-dot' + (saving ? ' busy' : '')} /><span className="hide-sm">{saving ? 'Saving…' : savedAt ? `Saved ${savedAt}` : ''}</span></span>}
+        <RankBadge onOpen={() => { const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section: 'ach:all' } }); useApp.getState().updateTab(id, { payload: { section: 'ach:all' } }); }} />
         <button className="qat" style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} title="Learning Mode shows contextual tips in every designer" onClick={() => useApp.getState().setLearningMode(!learningMode)}><GraduationCap size={15} /><span className="hide-sm">{learningMode ? 'Learning Mode: On' : 'Learning Mode: Off'}</span></button>
         <button style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer' }} title="Options" onClick={() => { useApp.getState().setRibbonTab('file'); }}><Settings size={15} /></button>
       </div>

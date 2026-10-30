@@ -432,7 +432,7 @@ export class WowProject {
       const cond = rel.fields.map((f) => `c.${q(f.related)} = p.${q(f.primary)}`).join(' AND ');
       const notNull = rel.fields.map((f) => `c.${q(f.related)} IS NOT NULL`).join(' AND ');
       const orphans = Number(this.db.scalar(`SELECT count(*) FROM ${q(R.name)} c WHERE ${notNull} AND NOT EXISTS (SELECT 1 FROM ${q(P.name)} p WHERE ${cond})`));
-      if (orphans > 0) throw new WowError(`WOWDB can't enforce referential integrity: ${orphans} record(s) in "${R.name}" have a ${rel.fields.map((f) => f.related).join('/')} value that does not exist in "${P.name}". Fix or delete those records, or create the relationship without enforcing integrity.`);
+      if (orphans > 0) throw new WowError(`DBWOW can't enforce referential integrity: ${orphans} record(s) in "${R.name}" have a ${rel.fields.map((f) => f.related).join('/')} value that does not exist in "${P.name}". Fix or delete those records, or create the relationship without enforcing integrity.`);
     }
     const needsRebuild = rel.enforce || (old?.enforce ?? false);
     if (needsRebuild) {
@@ -688,7 +688,7 @@ export class WowProject {
     } catch (e) { throw friendlyError(e, this, 'delete', table); }
   }
 
-  /** Import a database that was not created by WOWDB: build catalogue entries from its schema. */
+  /** Import a database that was not created by DBWOW: build catalogue entries from its schema. */
   adoptPlainSqlite() { this.syncCatalog(); }
 
   /** Keep the catalogue consistent after raw SQL DDL typed in SQL View (CREATE/DROP/ALTER TABLE). */

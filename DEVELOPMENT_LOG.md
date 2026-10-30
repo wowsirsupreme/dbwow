@@ -1,4 +1,12 @@
-# WOWDB Development Log
+# DBWOW Development Log
+
+## 30 October 2026 — Release 0.3.0: renamed DBWOW; live practicals and achievements
+
+* The product is now DBWOW (formerly WOWDB). Database files use the .dbwow extension; older .wowdb files still open. Browser storage keys are unchanged, so existing databases and progress carry over.
+* Practicals tick themselves off while students work. "Work on this beside my database" pins the checklist in a panel that stays visible over every designer. Each step is re-checked whenever the database changes; a step found only in an unsaved table design shows as "save to confirm".
+* Achievements: 45 trophies in seven categories (Tables, Relationships, Queries, Forms, Reports, Data, Learning) at Bronze, Silver and Gold, plus Platinum for unlocking all of them. Each is earned from evidence in the real database, verified practical steps, correct quiz answers, or recorded actions (SQL run, import, export, PDF, backup). XP: 10 per verified step, 5 per correct answer, 15/30/60/150 per trophy. Seven ranks from Novice to Database Master, shown in the title bar.
+* Fixed: the "Link Students to Classes" step 4 was marked complete in an empty database (any refused insert counted). It now requires the relationship and a foreign-key refusal.
+* Tests: 52 engine tests (new achievements suite); new browser suite tests/e2e/learning.cjs (4 steps); 10/10 acceptance and 12/12 feature steps on both builds.
 
 ## 30 October 2026 — Release 0.2.1: security updates
 
@@ -72,7 +80,7 @@ The interface was compared screen by screen with the five reference screenshots 
 
 ### Next implementation steps
 
-1. Tauri desktop build that reads and writes `.wowdb` files directly on disk (swap `persistence.ts`).
+1. Tauri desktop build that reads and writes `.dbwow` files directly on disk (swap `persistence.ts`).
 2. Updatable query datasheets and query-bound forms for single-table queries (write back through the base table's rowid).
 3. Can Grow / Can Shrink for report text boxes, and Keep Together for groups.
 4. Option group frames on forms.

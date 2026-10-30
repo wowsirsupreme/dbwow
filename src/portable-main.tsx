@@ -1,5 +1,5 @@
 // Entry point for the portable single-file build (vite.portable.config.ts).
-// The SQLite WebAssembly binary is embedded in the page, so WOWDB runs from one
+// The SQLite WebAssembly binary is embedded in the page, so DBWOW runs from one
 // HTML file with no server (USB stick, classroom PC, hosted page).
 import React from 'react';
 import { createRoot } from 'react-dom/client';

@@ -365,8 +365,8 @@ export function runSql(p: WowProject, sqlText: string, values: Record<string, un
   try {
     for (const raw of stmts) {
       const s = stripComments(raw).trim();
-      if (PROTECTED.test(s) && !/^\s*(select|with|pragma|explain)\b/i.test(s)) throw new WowError('The WOWDB system tables (_wow_objects, _wow_meta) are protected and cannot be changed with SQL.');
-      if (/^\s*(attach|detach)\b/i.test(s)) throw new WowError('ATTACH/DETACH is not available in WOWDB.');
+      if (PROTECTED.test(s) && !/^\s*(select|with|pragma|explain)\b/i.test(s)) throw new WowError('The DBWOW system tables (_wow_objects, _wow_meta) are protected and cannot be changed with SQL.');
+      if (/^\s*(attach|detach)\b/i.test(s)) throw new WowError('ATTACH/DETACH is not available in DBWOW.');
       if (/^\s*pragma\s+(writable_schema|foreign_keys\s*=)/i.test(s)) throw new WowError('This PRAGMA is not allowed because it could damage the database.');
       // CREATE TABLE x AS SELECT → Make Table through the catalogue
       const mt = /^\s*create\s+table\s+(?:"((?:[^"]|"")+)"|\[([^\]]+)\]|(\w+))\s+as\s+([\s\S]+)$/i.exec(s);
@@ -411,7 +411,7 @@ function coerceParam(v: unknown): unknown {
   return v;
 }
 
-/** Make-table: infer field types from the result and create a proper WOWDB table. */
+/** Make-table: infer field types from the result and create a proper DBWOW table. */
 export function makeTable(p: WowProject, name: string, selectSql: string, values: Record<string, unknown> = {}): number {
   const prepared = prepareParams(selectSql.trim().replace(/;\s*$/, ''), p.knownIdentifiers());
   const bind: Record<string, unknown> = {};

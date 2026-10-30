@@ -27,7 +27,7 @@ describe('database creation and persistence', () => {
     // foreign keys are re-enabled after reopening
     expect(p2.db.scalar('PRAGMA foreign_keys')).toBe(1);
   });
-  it('opens a plain SQLite database that was not made by WOWDB', async () => {
+  it('opens a plain SQLite database that was not made by DBWOW', async () => {
     const raw = await WowProject.create('x');
     raw.db.exec('DROP TABLE _wow_objects; DROP TABLE _wow_meta; CREATE TABLE People (id INTEGER PRIMARY KEY, name TEXT, score REAL); INSERT INTO People VALUES (1,"A",2.5); CREATE VIEW v AS SELECT name FROM People;');
     const p2 = await WowProject.open(raw.db.export());

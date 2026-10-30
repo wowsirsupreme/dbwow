@@ -1,6 +1,6 @@
-// Portable build: the same WOWDB source compiled into ONE self-contained HTML file
+// Portable build: the same DBWOW source compiled into ONE self-contained HTML file
 // (JS, CSS and the SQLite WebAssembly binary all inlined). Used for the hosted
-// browser version and for running WOWDB from a USB stick with no server.
+// browser version and for running DBWOW from a USB stick with no server.
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';

@@ -140,7 +140,7 @@ export function DataGrid(props: DataGridProps) {
       setPending(null); pendingRef.current = null;
       return true;
     } catch (e) {
-      void errorBox(e, 'WOWDB - record not saved');
+      void errorBox(e, 'DBWOW - record not saved');
       return false;
     }
   }, [tdef, p, props.link]);
@@ -555,7 +555,7 @@ export function DataGrid(props: DataGridProps) {
         <button onClick={() => moveTo(rows.length - 1, focus.c)} disabled={focus.r >= rows.length - 1} title="Last record"><ChevronsRight size={13} /></button>
         {canAdd && <button onClick={() => moveTo(newRowIndex, 0)} title="New (blank) record"><Plus size={13} /></button>}
         <span className={'flt' + (Object.keys(filters).length && filterOn ? ' on' : '')} style={{ cursor: Object.keys(filters).length ? 'pointer' : 'default' }} onClick={() => Object.keys(filters).length && setFilterOn(!filterOn)}>{Object.keys(filters).length ? (filterOn ? 'Filtered' : 'Unfiltered') : 'No Filter'}</span>
-        <input className="search" placeholder="Search" onKeyDown={(e) => { if (e.key === 'Enter') { const t = e.currentTarget.value; if (!findNext(t, { match: 'any', matchCase: false, scope: 'all' })) void messageBox(`WOWDB finished searching the records. The search item "${t}" was not found.`); } }} />
+        <input className="search" placeholder="Search" onKeyDown={(e) => { if (e.key === 'Enter') { const t = e.currentTarget.value; if (!findNext(t, { match: 'any', matchCase: false, scope: 'all' })) void messageBox(`DBWOW finished searching the records. The search item "${t}" was not found.`); } }} />
         <span style={{ flex: 1 }} />
         {pending && <span className="muted">Editing record — press Shift+Enter or move to another record to save</span>}
         {!tdef && <span className="muted">{result?.rows.length ?? 0} row(s) · read-only results</span>}

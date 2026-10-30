@@ -1,6 +1,6 @@
 // Preloaded sample databases. All names and records are fictional.
 // Each sample is built through the same public API the designers use, so the
-// tables, relationships, queries, forms and reports are ordinary WOWDB objects.
+// tables, relationships, queries, forms and reports are ordinary DBWOW objects.
 import { WowProject, uid } from './project';
 import { designToSql, emptyDesign, newColumn } from './queries';
 import { autoForm, autoReport, newControl } from './objects';

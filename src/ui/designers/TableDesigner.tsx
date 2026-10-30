@@ -197,7 +197,7 @@ export function TableDesigner(props: TableDesignerProps) {
     if (tmpl) {
       const t = JSON.parse(tmpl) as Partial<FieldDef>;
       const nf: FieldDef = { id: uid('f'), name: uniqueFieldName(def, t.name ?? (t.type === 'AutoNumber' ? 'ID' : t.type?.replace(/[^A-Za-z]/g, '') ?? 'Field')), type: 'Short Text', ...t, ...(t.primaryKey && def.fields.some((f) => f.primaryKey) ? { primaryKey: false } : {}) } as FieldDef;
-      if (nf.type === 'AutoNumber' && def.fields.some((f) => f.type === 'AutoNumber')) { void messageBox('A table can only have one AutoNumber field.', 'WOWDB', 'warn'); return; }
+      if (nf.type === 'AutoNumber' && def.fields.some((f) => f.type === 'AutoNumber')) { void messageBox('A table can only have one AutoNumber field.', 'DBWOW', 'warn'); return; }
       nf.name = uniqueFieldName(def, nf.name);
       const fields = [...def.fields];
       const at = beforeId ? fields.findIndex((f) => f.id === beforeId) : fields.length;
@@ -246,7 +246,7 @@ export function TableDesigner(props: TableDesignerProps) {
                     <td><input value={f.name} placeholder={isBlank ? '' : 'Field name'} aria-label="Field Name" onFocus={() => { if (!isBlank) { setCur(f.id); setSel(new Set([f.id])); } setHelpKey('name'); }} onChange={(e) => updateField(f.id, { name: e.target.value })} maxLength={64} /></td>
                     <td>
                       <select value={isBlank && !f.name ? '' : f.type} aria-label="Data Type" onFocus={() => { if (!isBlank) { setCur(f.id); setSel(new Set([f.id])); } setHelpKey('type'); }}
-                        onChange={(e) => { const t = e.target.value as DataType; if (!t) return; if (t === 'AutoNumber' && def.fields.some((x) => x.type === 'AutoNumber' && x.id !== f.id)) { void messageBox('A table can only have one AutoNumber field.', 'WOWDB', 'warn'); return; } updateField(f.id, { type: t, name: f.name || uniqueFieldName(def, 'Field') }); }}>
+                        onChange={(e) => { const t = e.target.value as DataType; if (!t) return; if (t === 'AutoNumber' && def.fields.some((x) => x.type === 'AutoNumber' && x.id !== f.id)) { void messageBox('A table can only have one AutoNumber field.', 'DBWOW', 'warn'); return; } updateField(f.id, { type: t, name: f.name || uniqueFieldName(def, 'Field') }); }}>
                         {isBlank && !f.name && <option value="" />}
                         {DATA_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                       </select>

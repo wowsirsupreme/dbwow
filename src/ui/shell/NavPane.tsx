@@ -103,7 +103,7 @@ export function NavPane({ openObject, runObject, actions }: { openObject: (type:
     <div className="nav" aria-label="Navigation Pane" data-testid="nav-pane" tabIndex={-1}>
       <div className="nav-head">
         <select className="nav-title" style={{ border: 0, background: 'transparent', cursor: 'pointer', appearance: 'none' }} value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label="Navigation category">
-          <option value="all">All WOWDB Objects</option>
+          <option value="all">All DBWOW Objects</option>
           {GROUPS.map((g) => <option key={g.type} value={g.type}>{g.label}</option>)}
         </select>
         <button className="icon-btn" title={`Sort by ${sortBy === 'name' ? 'date modified' : 'name'}`} onClick={() => setSortBy(sortBy === 'name' ? 'modified' : 'name')}><ChevronDown size={14} /></button>

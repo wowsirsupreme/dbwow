@@ -119,7 +119,7 @@ export function FormRunner(props: FormRunnerProps) {
   const save = (): boolean => {
     if (!buffer || !table) { if (isNew && !buffer) { setIsNew(false); } return true; }
     const msg = validateControls();
-    if (msg) { void messageBox(msg, 'WOWDB', 'warn'); return false; }
+    if (msg) { void messageBox(msg, 'DBWOW', 'warn'); return false; }
     try {
       if (isNew) {
         const vals: Rec = { ...buffer };
@@ -139,7 +139,7 @@ export function FormRunner(props: FormRunnerProps) {
       return true;
     } catch (e) {
       setErr((e as Error).message);
-      void errorBox(e, 'WOWDB - record not saved');
+      void errorBox(e, 'DBWOW - record not saved');
       return false;
     }
   };

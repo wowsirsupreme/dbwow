@@ -1,4 +1,5 @@
 'use client';
+import { trackEvent } from './learning';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { WowProject } from '@/engine/project';
@@ -39,7 +40,7 @@ export function ReportPreview({ project: p, def, tabId, active, embedded, onClos
     try {
       const doc = reportToPdf(layout, def.caption || def.name);
       downloadBytes(new Uint8Array(doc.output('arraybuffer')), `${safeFileName(def.name)}.pdf`, 'application/pdf');
-      useApp.getState().setStatus(`Exported ${layout.pages.length} page(s) to ${def.name}.pdf`);
+      useApp.getState().setStatus(`Exported ${layout.pages.length} page(s) to ${def.name}.pdf`); trackEvent('pdf');
     } catch (e) { void errorBox(e, 'PDF export failed'); }
   };
   const print = () => { if (isHosted()) { void messageBox('Printing is not available inside the hosted page. Use PDF to save the report, then print the PDF.', 'Print'); return; } setPrinting(true); setTimeout(() => { window.print(); setPrinting(false); }, 150); };

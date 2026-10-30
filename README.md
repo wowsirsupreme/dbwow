@@ -1,10 +1,10 @@
-# WOWDB
+# DBWOW
 
-WOWDB is an educational database development environment inspired by the Microsoft Access desktop application. It is built for classroom demonstrations, practical lessons, database training and independent student projects.
+DBWOW is an educational database development environment inspired by the Microsoft Access desktop application. It is built for classroom demonstrations, practical lessons, database training and independent student projects.
 
-WOWDB is not a mock-up. Every table, relationship, query, form and report works against a real relational engine: SQLite 3.45, compiled to WebAssembly (sql.js) and running inside the browser. Each database is one SQLite file that also stores the WOWDB object definitions, so a `.wowdb` file can be opened by any SQLite tool.
+DBWOW is not a mock-up. Every table, relationship, query, form and report works against a real relational engine: SQLite 3.45, compiled to WebAssembly (sql.js) and running inside the browser. Each database is one SQLite file that also stores the DBWOW object definitions, so a `.dbwow` file can be opened by any SQLite tool.
 
-WOWDB is an original, non-commercial educational project. It is not affiliated with or endorsed by Microsoft. "Microsoft Access" is a trademark of Microsoft Corporation.
+DBWOW is an original, non-commercial educational project. It is not affiliated with or endorsed by Microsoft. "Microsoft Access" is a trademark of Microsoft Corporation.
 
 ## What a student can do
 
@@ -16,7 +16,7 @@ WOWDB is an original, non-commercial educational project. It is not affiliated w
 6. Design forms by dragging controls onto Form Header, Detail and Form Footer sections, with a Property Sheet, alignment tools, grid snapping, grouping, tab order, subforms, combo boxes and command buttons. Use them in Form View to add, edit and delete records.
 7. Design reports with report, page, group and detail sections, grouping, sorting and totals; preview, print and export to PDF.
 8. Import CSV, Excel, JSON and SQL through a 10-step import wizard; export CSV, Excel, JSON, SQL and PDF.
-9. Save, close and reopen: everything is saved automatically in the browser and can be downloaded as a `.wowdb` file.
+9. Save, close and reopen: everything is saved automatically in the browser and can be downloaded as a `.dbwow` file.
 10. Learn with the Learning Centre: 20 topics with knowledge checks, guided practicals and sample-database exercises that are checked automatically against the real database.
 
 ## Screens

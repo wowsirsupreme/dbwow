@@ -12,7 +12,7 @@ async function step(name, fn) {
   catch (e) { results.push(['FAIL', name, e.message]); console.log('FAIL', name, '\n   ', e.message.split('\n').slice(0, 4).join(' | ')); }
 }
 (async () => {
-  const { browser, page, errors } = await start({ url: process.env.WOWDB_URL });
+  const { browser, page, errors } = await start({ url: process.env.DBWOW_URL });
   const vis = (sel) => page.locator('.doc-pane:not(.hidden) ' + sel);
   const sql = (q) => page.evaluate((q) => window.__WOWDB__.store.getState().project.db.all(q), q);
   const scalar = async (q) => Object.values((await sql(q))[0] ?? {})[0];

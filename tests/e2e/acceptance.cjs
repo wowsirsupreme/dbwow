@@ -15,7 +15,7 @@ async function step(name, fn) {
 }
 
 (async () => {
-  const { browser, context, page, errors } = await start({ url: process.env.WOWDB_URL });
+  const { browser, context, page, errors } = await start({ url: process.env.DBWOW_URL });
   const sql = (q) => page.evaluate((q) => window.__WOWDB__.store.getState().project.db.all(q), q);
   const scalar = async (q) => Object.values((await sql(q))[0] ?? {})[0];
   const vis = (sel) => page.locator('.doc-pane:not(.hidden) ' + sel);

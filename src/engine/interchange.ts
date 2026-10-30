@@ -253,11 +253,11 @@ export function sqlDump(p: WowProject, tables?: string[]): string {
     ordered.push(n);
   };
   names.forEach((n) => visit(n));
-  const out: string[] = [`-- WOWDB SQL export of "${p.name}"`, `-- Created ${new Date().toISOString()}`, 'PRAGMA foreign_keys = OFF;', 'BEGIN TRANSACTION;'];
+  const out: string[] = [`-- DBWOW SQL export of "${p.name}"`, `-- Created ${new Date().toISOString()}`, 'PRAGMA foreign_keys = OFF;', 'BEGIN TRANSACTION;'];
   for (const n of ordered) {
     const t = p.getTable(n);
     if (!t) continue;
-    out.push('', `-- Table: ${t.name}`, `-- WOWDB-TABLE ${JSON.stringify(t)}`, `DROP TABLE IF EXISTS ${q(t.name)};`, p.createTableSql(t));
+    out.push('', `-- Table: ${t.name}`, `-- DBWOW-TABLE ${JSON.stringify(t)}`, `DROP TABLE IF EXISTS ${q(t.name)};`, p.createTableSql(t));
     const cols = t.fields.filter((f) => f.type !== 'Calculated').map((f) => f.name);
     const r = p.db.query(`SELECT ${cols.map(q).join(', ')} FROM ${q(t.name)}`);
     for (const row of r.rows) out.push(`INSERT INTO ${q(t.name)} (${cols.map(q).join(', ')}) VALUES (${row.map(lit).join(', ')});`);
@@ -280,14 +280,14 @@ export function sqlDump(p: WowProject, tables?: string[]): string {
 export function importSqlScript(p: WowProject, script: string): { statements: number; added: string[] } {
   const cleaned = script.replace(/^\s*PRAGMA\s+foreign_keys\s*=\s*\w+\s*;/gim, '').replace(/^\s*(BEGIN(\s+TRANSACTION)?|COMMIT)\s*;/gim, '');
   const before = new Set(p.tableNames().map((n) => n.toLowerCase()));
-  // dropped-and-recreated tables lose their catalogue metadata; keep WOWDB definitions where names match
+  // dropped-and-recreated tables lose their catalogue metadata; keep DBWOW definitions where names match
   const keep = new Map<string, TableDef>(p.tables().map((t) => [t.name.toLowerCase(), t]));
   const res = runSql(p, cleaned);
   void res;
   const added = p.tableNames().filter((n) => !before.has(n.toLowerCase()));
-  // restore WOWDB field metadata (Currency, captions, rules...) written by sqlDump
+  // restore DBWOW field metadata (Currency, captions, rules...) written by sqlDump
   for (const line of script.split('\n')) {
-    const m = /^--\s*WOWDB-TABLE\s+(\{.*\})\s*$/.exec(line.trim());
+    const m = /^--\s*DBWOW-TABLE\s+(\{.*\})\s*$/.exec(line.trim());
     if (!m) continue;
     try {
       const def = JSON.parse(m[1]) as TableDef;

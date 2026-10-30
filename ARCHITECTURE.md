@@ -1,8 +1,8 @@
-# WOWDB Architecture
+# DBWOW Architecture
 
 ## Overview
 
-WOWDB is a single-page React application. The database engine is SQLite 3.45 compiled to WebAssembly (sql.js 1.12), running in the page. There is no server. One codebase produces two builds:
+DBWOW is a single-page React application. The database engine is SQLite 3.45 compiled to WebAssembly (sql.js 1.12), running in the page. There is no server. One codebase produces two builds:
 
 1. Next.js 15 static export (`npm run build` → `out/`). The WebAssembly binary is served as `sql-wasm.wasm`.
 2. Portable single-file build with Vite (`npm run build:portable` → `dist-portable/index.html`). JavaScript, CSS and the WebAssembly binary are inlined, so the file runs from disk or from any static host.
@@ -29,7 +29,7 @@ The engine layer has no React or DOM dependencies (except `persistence.ts`, whic
 
 ## The database file
 
-A WOWDB database is one SQLite file containing:
+A DBWOW database is one SQLite file containing:
 
 * The user's tables, as real `STRICT` SQLite tables.
 * Real constraints: `PRIMARY KEY`, `NOT NULL`, `UNIQUE` indexes, `CHECK` constraints for field size, number ranges, dates, Yes/No and validation rules, and `FOREIGN KEY ... ON UPDATE/ON DELETE` for enforced relationships.
@@ -54,7 +54,7 @@ SQLite cannot alter column types or constraints in place, so `WowProject.saveTab
 
 ## Data types
 
-| WOWDB type | SQLite column | Enforcement |
+| DBWOW type | SQLite column | Enforcement |
 |---|---|---|
 | Short Text | TEXT COLLATE NOCASE | CHECK length ≤ Field Size |
 | Long Text, Hyperlink, Attachment | TEXT COLLATE NOCASE | Attachments are stored as data URLs |
@@ -83,7 +83,7 @@ Text uses `COLLATE NOCASE` so comparisons and sorting are case-insensitive, as i
 * Select queries: joins are built from the join list, criteria rows become `WHERE` (AND across a row, OR between rows), totals become `GROUP BY` and `HAVING`, `Return` becomes `LIMIT` (percentages use a subquery).
 * Parameters are written as `[Prompt]` in the saved SQL and bound as named SQLite parameters at run time. Bracketed names that match a table, query or field are treated as identifiers, so Access-style `[FirstName]` works in SQL View.
 * Crosstab queries store a template; column headings are found at run time and expanded with conditional aggregates.
-* Make-table queries create a proper WOWDB table (with inferred field types) through the catalogue. `CREATE TABLE ... AS SELECT` typed in SQL View takes the same path.
+* Make-table queries create a proper DBWOW table (with inferred field types) through the catalogue. `CREATE TABLE ... AS SELECT` typed in SQL View takes the same path.
 * SQL typed in SQL View that changes the schema (CREATE, DROP, ALTER) is followed by a catalogue sync.
 * SQL → Design View: a restricted recursive-descent parser accepts SELECT with joins, OR-of-AND criteria, GROUP BY, ORDER BY and LIMIT. It then regenerates SQL from the design and re-parses it; if the two designs differ, or the ORDER BY sequence changes, the translation is rejected and the query stays in SQL View with an explanation. This is how "never silently change query meaning" is enforced.
 * Safety: values are always bound as parameters; writes to the catalogue tables, `ATTACH`, and dangerous PRAGMAs are refused; multi-statement scripts run inside one savepoint.
@@ -114,9 +114,9 @@ The brief lists a preferred stack and asks to avoid unnecessary dependencies. Fi
 
 A Tauri desktop wrapper was evaluated and is not built in this release:
 
-* Benefit: native window, file associations for `.wowdb`, saving straight to disk, and the ability to use native SQLite with file locking for very large databases.
+* Benefit: native window, file associations for `.dbwow`, saving straight to disk, and the ability to use native SQLite with file locking for very large databases.
 * Cost: a Rust toolchain on every build machine, per-platform installers and code signing, and two storage paths to maintain.
-* For the classroom use case the browser build already meets the requirements: real SQLite, persistence across restarts, and `.wowdb` files that can be downloaded and reopened. The portable single-file build covers "run without installing".
+* For the classroom use case the browser build already meets the requirements: real SQLite, persistence across restarts, and `.dbwow` files that can be downloaded and reopened. The portable single-file build covers "run without installing".
 * The architecture keeps the option open: all storage goes through `persistence.ts` and the engine only needs bytes in and bytes out, so a Tauri build can swap IndexedDB for the filesystem without touching the designers. This is listed as a next step in DEVELOPMENT_LOG.md.
 
 ## Risks and how they are handled
@@ -128,5 +128,5 @@ A Tauri desktop wrapper was evaluated and is not built in this release:
 | SQL injection | Parameters everywhere; parameter prompts are bound, never concatenated. |
 | Damaging the catalogue from SQL View | Writes to `_wow_*` tables, ATTACH and dangerous PRAGMAs are refused. |
 | Design View changing query meaning | Round-trip verification before accepting SQL → Design translation. |
-| Browser storage loss | Autosave plus Backup (in browser) and Download (.wowdb file). |
+| Browser storage loss | Autosave plus Backup (in browser) and Download (.dbwow file). |
 | Browser shortcuts that pages cannot override (Ctrl+N, Ctrl+W in Chrome) | Alternatives documented: Ctrl+Alt+N, Ctrl+F4. |

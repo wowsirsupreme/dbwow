@@ -173,7 +173,7 @@ export function reportToPdf(layout: ReportLayout, title: string): jsPDF {
   const k = 0.75; // px → pt
   const orientation = layout.width > layout.height ? 'landscape' : 'portrait';
   const doc = new jsPDF({ unit: 'pt', format: [layout.width * k, layout.height * k], orientation });
-  doc.setProperties({ title, creator: 'WOWDB' });
+  doc.setProperties({ title, creator: 'DBWOW' });
   layout.pages.forEach((pg, i) => {
     if (i > 0) doc.addPage([layout.width * k, layout.height * k], orientation);
     for (const b of pg.bands) {

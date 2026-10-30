@@ -253,7 +253,7 @@ function JunctionDialog({ p, close }: { p: WowProject; close: (v: string | null)
   };
   return (
     <div>
-      <p className="mb-2">A many-to-many relationship is stored with a junction table that holds the primary key of each table. WOWDB creates the table with a composite primary key and two enforced one-to-many relationships.</p>
+      <p className="mb-2">A many-to-many relationship is stored with a junction table that holds the primary key of each table. DBWOW creates the table with a composite primary key and two enforced one-to-many relationships.</p>
       <div className="field-row"><label>First table</label><select className="sel" value={a} onChange={(e) => setA(e.target.value)}>{tables.map((t) => <option key={t.name}>{t.name}</option>)}</select></div>
       <div className="field-row"><label>Second table</label><select className="sel" value={b} onChange={(e) => setB(e.target.value)}>{tables.map((t) => <option key={t.name}>{t.name}</option>)}</select></div>
       <div className="field-row"><label>Junction table name</label><input className="inp" value={name} onChange={(e) => setName(e.target.value)} /></div>

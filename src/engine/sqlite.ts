@@ -1,5 +1,5 @@
 // Thin wrapper around sql.js (the real SQLite engine compiled to WebAssembly).
-// Every data operation in WOWDB goes through this class. Nothing is simulated.
+// Every data operation in DBWOW goes through this class. Nothing is simulated.
 import initSqlJs, { type Database, type SqlJsStatic, type SqlValue } from 'sql.js';
 import type { QueryResult } from './types';
 

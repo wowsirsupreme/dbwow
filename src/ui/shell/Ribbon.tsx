@@ -27,7 +27,7 @@ const VIEW_MENU: Item = { menu: [{ cmd: 'view.design', label: 'Design View' }, {
 const RECORDS: Group = { label: 'Records', items: [col(sm('home.newRecord', 'New', I.Plus), sm('home.saveRecord', 'Save', I.Save), sm('home.deleteRecord', 'Delete', I.Trash2)), col(sm('home.refresh', 'Refresh All', I.RefreshCw), sm('home.undoRecord', 'Undo Record', I.Undo2))] };
 
 
-const THEMES: Item = { menu: [{ cmd: 'fd.theme.wowdb', label: 'WOWDB Blue' }, { cmd: 'fd.theme.slate', label: 'Slate' }, { cmd: 'fd.theme.forest', label: 'Forest' }, { cmd: 'fd.theme.sunset', label: 'Sunset' }, { cmd: 'fd.theme.mono', label: 'Monochrome' }], label: 'Themes', icon: I.Palette, size: 'lg' };
+const THEMES: Item = { menu: [{ cmd: 'fd.theme.wowdb', label: 'DBWOW Blue' }, { cmd: 'fd.theme.slate', label: 'Slate' }, { cmd: 'fd.theme.forest', label: 'Forest' }, { cmd: 'fd.theme.sunset', label: 'Sunset' }, { cmd: 'fd.theme.mono', label: 'Monochrome' }], label: 'Themes', icon: I.Palette, size: 'lg' };
 const COLORS: Item = { menu: [{ cmd: 'fd.colors.wowdb', label: 'Blue' }, { cmd: 'fd.colors.slate', label: 'Slate' }, { cmd: 'fd.colors.forest', label: 'Green' }, { cmd: 'fd.colors.sunset', label: 'Orange' }, { cmd: 'fd.colors.mono', label: 'Grey' }], label: 'Colors', icon: I.SwatchBook, size: 'sm' };
 const FONTS: Item = { menu: [{ cmd: 'fd.fonts.Segoe UI', label: 'Segoe UI' }, { cmd: 'fd.fonts.Calibri', label: 'Calibri' }, { cmd: 'fd.fonts.Arial', label: 'Arial' }, { cmd: 'fd.fonts.Times New Roman', label: 'Times New Roman' }, { cmd: 'fd.fonts.Georgia', label: 'Georgia' }], label: 'Fonts', icon: I.CaseSensitive, size: 'sm' };
 const CONTROLS_FORM: Item = { menu: ['label', 'textbox', 'combobox', 'listbox', 'checkbox', 'option', 'toggle', 'button', 'datepicker', 'image', 'line', 'rectangle', 'subform', 'navigation'].map((t) => ({ cmd: `fd.tool.${t}`, label: TOOL_NAMES[t] })), label: 'Controls', icon: I.Wrench, size: 'lg' };
@@ -85,7 +85,7 @@ const TABS: RibbonTab[] = [
   ] },
   { id: 'help', label: 'HELP', groups: [
     { label: 'Learn', items: [lg('help.learning', 'Learning Centre', I.GraduationCap), lg('help.tutorials', 'Tutorials', I.BookOpen), lg('help.exercises', 'Practical Exercises', I.ListChecks), lg('help.learningMode', 'Learning Mode', I.Lightbulb)] },
-    { label: 'Reference', items: [lg('help.sqlref', 'SQL Reference', I.Braces), lg('help.shortcuts', 'Keyboard Shortcuts', I.Keyboard), lg('help.about', 'About WOWDB', I.Info)] },
+    { label: 'Reference', items: [lg('help.sqlref', 'SQL Reference', I.Braces), lg('help.shortcuts', 'Keyboard Shortcuts', I.Keyboard), lg('help.about', 'About DBWOW', I.Info)] },
   ] },
   // ---- contextual tabs ----
   { id: 'ctx-table-design', label: 'DESIGN', ctx: 'TABLE TOOLS', groups: [

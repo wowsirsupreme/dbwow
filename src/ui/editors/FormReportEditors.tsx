@@ -56,7 +56,7 @@ export function FormEditor({ tab, active, project: p }: { tab: Tab; active: bool
   const switchView = async (v: string) => {
     if (v === view) return;
     if (v !== 'design' && dirty) {
-      const ok = await confirmBox('Save changes to the form design before switching view?', { title: 'WOWDB' });
+      const ok = await confirmBox('Save changes to the form design before switching view?', { title: 'DBWOW' });
       if (ok && !(await save())) return;
       if (!ok && !tab.name) return;
     }

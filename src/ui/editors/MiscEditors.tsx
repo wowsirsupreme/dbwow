@@ -30,7 +30,7 @@ function useSimpleSave<T extends { name: string }>(tab: Tab, p: WowProject, kind
 }
 
 export function MacroEditor({ tab, active, project: p }: { tab: Tab; active: boolean; project: WowProject }) {
-  const initial = p.getMacro(tab.name) ?? { name: '', actions: [{ action: 'MessageBox', argument: 'Hello from WOWDB' }] };
+  const initial = p.getMacro(tab.name) ?? { name: '', actions: [{ action: 'MessageBox', argument: 'Hello from DBWOW' }] };
   const [def, setDef] = useState<MacroDef>(initial);
   const { save } = useSimpleSave(tab, p, 'macro', def, tab.name ? JSON.stringify(initial) : '');
   const run = async () => { for (const a of def.actions) await runAction(a.action, a.argument); };
@@ -82,7 +82,7 @@ export function ModuleEditor({ tab, active, project: p }: { tab: Tab; active: bo
   useEditorCommands(tab.id, active, { save: () => save(), 'q.run': () => void run() });
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="banner info">SQL Module: write SQL statements separated by ; and press Run (Ctrl+Enter). Modules are WOWDB&apos;s safe alternative to VBA: only SQL runs, inside the database.</div>
+      <div className="banner info">SQL Module: write SQL statements separated by ; and press Run (Ctrl+Enter). Modules are DBWOW&apos;s safe alternative to VBA: only SQL runs, inside the database.</div>
       <div style={{ flex: '1 1 50%', minHeight: 120, display: 'flex' }}><SqlEditor value={def.notes} onChange={(v) => setDef({ ...def, notes: v })} onRun={() => void run()} /></div>
       <div className="banner" style={{ borderTop: '1px solid var(--line)', background: '#fafafa' }}><button className="btn btn-sm btn-primary" onClick={() => void run()}>Run</button><button className="btn btn-sm" onClick={() => void save()}>Save</button>{msg && <span className="small muted">{msg}</span>}</div>
       {err && <div className="banner err">{err}</div>}

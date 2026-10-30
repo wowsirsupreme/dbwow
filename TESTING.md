@@ -1,6 +1,6 @@
-# WOWDB Testing
+# DBWOW Testing
 
-WOWDB is tested at two levels. Neither level mocks the database: every test runs real SQLite.
+DBWOW is tested at two levels. Neither level mocks the database: every test runs real SQLite.
 
 ## 1. Engine tests (Vitest)
 
@@ -31,7 +31,7 @@ To run against the Next.js build instead:
 ```bash
 npm run build
 npx serve out -l 4321      # or any static server
-WOWDB_URL=http://localhost:4321/ node tests/e2e/acceptance.cjs
+DBWOW_URL=http://localhost:4321/ node tests/e2e/acceptance.cjs
 ```
 
 ### Acceptance suite (`tests/e2e/acceptance.cjs`)
@@ -61,7 +61,7 @@ Result: 10/10 steps pass on the portable build and on the Next.js build, with no
 | Import wizard | A CSV with an invalid value goes through all ten wizard steps; the summary lists the rejected row with its reason; the imported rows and types are verified. |
 | Datasheet sort/filter | Filter by selection from the right-click menu (count matches SQL), toggle filter, sort descending (top value matches SQL). |
 | SQL View | GROUP BY / HAVING query runs, row count matches SQL, saved as a view. |
-| SQL-only queries | A subquery cannot be shown in Design View; WOWDB explains and keeps the SQL. |
+| SQL-only queries | A subquery cannot be shown in Design View; DBWOW explains and keeps the SQL. |
 | Learning Centre | A sample exercise step turns complete only after the right query exists; knowledge-check feedback. |
 | Learning Mode | Contextual tips appear in designers. |
 | Navigation Pane | Rename (open tab follows) and duplicate with data. |
@@ -79,4 +79,4 @@ Result: 12/12 steps pass.
 
 ## Manual checks
 
-Before a release, also check by hand: printing a report through the browser dialog, opening a downloaded `.wowdb` file with File > Open, importing an Excel workbook with several sheets, and the Lookup Wizard.
+Before a release, also check by hand: printing a report through the browser dialog, opening a downloaded `.dbwow` file with File > Open, importing an Excel workbook with several sheets, and the Lookup Wizard.

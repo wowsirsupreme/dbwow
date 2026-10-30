@@ -1,6 +1,6 @@
 // Persistent storage for database projects.
 // Each project is stored as the raw SQLite file bytes in IndexedDB, so data
-// survives refreshes and restarts. Files can also be saved/opened as .wowdb
+// survives refreshes and restarts. Files can also be saved/opened as .dbwow
 // (a standard SQLite file that any SQLite tool can read).
 
 export interface StoredProject { id: string; name: string; bytes: Uint8Array; modified: string; size: number; }
@@ -70,7 +70,7 @@ type HostWindow = { claude?: { use: (n: string) => Promise<unknown> } };
 let notify: (msg: string) => void = () => undefined;
 /** The UI registers how download problems are shown (an in-app message box). */
 export function setDownloadNotifier(fn: (msg: string) => void) { notify = fn; }
-/** True when WOWDB runs inside the claude.ai artifact viewer. */
+/** True when DBWOW runs inside the claude.ai artifact viewer. */
 export function isHosted(): boolean { return typeof window !== 'undefined' && !!(window as unknown as HostWindow).claude?.use; }
 const HOSTED_OK = /\.(csv|json|xlsx|pdf|txt|zip|html|md)$/i;
 
@@ -80,7 +80,7 @@ export async function downloadBytes(bytes: Uint8Array | string, filename: string
   if (isHosted()) {
     let name = filename;
     if (/\.sql$/i.test(name)) name += '.txt';
-    if (!HOSTED_OK.test(name)) { notify(`The hosted page can't save "${filename}" files. Open the portable WOWDB file (or the Next.js version) on your computer to download the database file, or export the tables as Excel or SQL instead.`); return; }
+    if (!HOSTED_OK.test(name)) { notify(`The hosted page can't save "${filename}" files. Open the portable DBWOW file (or the Next.js version) on your computer to download the database file, or export the tables as Excel or SQL instead.`); return; }
     try {
       const dl = (await (window as unknown as HostWindow).claude!.use('downloads')) as HostDownloads | null;
       if (!dl) { notify('Saving files is not available in this view.'); return; }

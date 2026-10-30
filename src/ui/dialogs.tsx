@@ -63,7 +63,7 @@ function DialogFrame({ item }: { item: DialogItem }) {
 
 const ICONS = { info: <Info size={28} className="text-blue-600" />, warn: <AlertTriangle size={28} className="text-amber-500" />, error: <XCircle size={28} className="text-red-600" />, question: <HelpCircle size={28} className="text-blue-600" /> };
 
-export function messageBox(message: React.ReactNode, title = 'WOWDB', kind: keyof typeof ICONS = 'info'): Promise<void> {
+export function messageBox(message: React.ReactNode, title = 'DBWOW', kind: keyof typeof ICONS = 'info'): Promise<void> {
   return openDialog<void>(title, (close) => (
     <div>
       <div className="flex gap-3 items-start"><div className="shrink-0">{ICONS[kind]}</div><div className="msg-text">{message}</div></div>
@@ -72,13 +72,13 @@ export function messageBox(message: React.ReactNode, title = 'WOWDB', kind: keyo
   ), 460).then(() => undefined);
 }
 
-export function errorBox(e: unknown, title = 'WOWDB') {
+export function errorBox(e: unknown, title = 'DBWOW') {
   const msg = e instanceof Error ? e.message : String(e);
   return messageBox(msg, title, 'error');
 }
 
 export function confirmBox(message: React.ReactNode, opts: { title?: string; ok?: string; cancel?: string; danger?: boolean; kind?: keyof typeof ICONS } = {}): Promise<boolean> {
-  return openDialog<boolean>(opts.title ?? 'WOWDB', (close) => (
+  return openDialog<boolean>(opts.title ?? 'DBWOW', (close) => (
     <div>
       <div className="flex gap-3 items-start"><div className="shrink-0">{ICONS[opts.kind ?? (opts.danger ? 'warn' : 'question')]}</div><div className="msg-text">{message}</div></div>
       <div className="dlg-buttons">
@@ -90,7 +90,7 @@ export function confirmBox(message: React.ReactNode, opts: { title?: string; ok?
 }
 
 /** Yes / No / Cancel (e.g. "Do you want to save changes?") */
-export function yesNoCancel(message: React.ReactNode, title = 'WOWDB'): Promise<'yes' | 'no' | 'cancel'> {
+export function yesNoCancel(message: React.ReactNode, title = 'DBWOW'): Promise<'yes' | 'no' | 'cancel'> {
   return openDialog<'yes' | 'no' | 'cancel'>(title, (close) => (
     <div>
       <div className="flex gap-3 items-start"><div className="shrink-0">{ICONS.question}</div><div className="msg-text">{message}</div></div>
@@ -103,7 +103,7 @@ export function yesNoCancel(message: React.ReactNode, title = 'WOWDB'): Promise<
   ), 460).then((v) => v ?? 'cancel');
 }
 
-export function promptBox(label: string, initial = '', title = 'WOWDB', validate?: (v: string) => string | null): Promise<string | null> {
+export function promptBox(label: string, initial = '', title = 'DBWOW', validate?: (v: string) => string | null): Promise<string | null> {
   return openDialog<string>(title, (close) => <PromptBody label={label} initial={initial} validate={validate} close={close} />, 400);
 }
 function PromptBody({ label, initial, validate, close }: { label: string; initial: string; validate?: (v: string) => string | null; close: (v: string | null) => void }) {

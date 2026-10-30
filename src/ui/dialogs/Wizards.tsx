@@ -1,4 +1,5 @@
 'use client';
+import { trackEvent } from '../learning';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { WowProject } from '@/engine/project';
 import { DATA_TYPES, type DataType } from '@/engine/types';
@@ -104,7 +105,7 @@ function TabularImport({ p, src, close }: { p: WowProject; src: ImportSource; cl
       <div className="wiz-steps">{STEPS.map((s, i) => <span key={s} className={i + 1 === step ? 'on' : ''}>{i + 1}. {s}</span>)}</div>
       {step === 1 && <div><p>File: <b>{src.fileName}</b> ({src.kind.toUpperCase()}) — {sheets.length} sheet(s)/table(s).</p>{sheets.length > 1 && <div className="field-row mt-2"><label>Sheet / table</label><select className="sel" value={sheetIdx} onChange={(e) => setSheetIdx(Number(e.target.value))}>{sheets.map((s, i) => <option key={i} value={i}>{s.name} ({s.rows.length} rows)</option>)}</select></div>}<p className="muted small mt-2">{rows.length} row(s) read from the file.</p></div>}
       {step === 2 && <div><p className="mb-2">Preview of the first rows:</p>{preview(12)}</div>}
-      {step === 3 && <div><label className="flex items-center gap-2 mb-2"><input type="checkbox" className="chk" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} /> First row contains field names</label>{preview(6)}<p className="muted small mt-2">WOWDB detected {hasHeader ? 'a header row' : 'no header row'}. Untick if the first row is data.</p></div>}
+      {step === 3 && <div><label className="flex items-center gap-2 mb-2"><input type="checkbox" className="chk" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} /> First row contains field names</label>{preview(6)}<p className="muted small mt-2">DBWOW detected {hasHeader ? 'a header row' : 'no header row'}. Untick if the first row is data.</p></div>}
       {step === 4 && <div>
         <label className="flex items-center gap-2 mb-1"><input type="radio" checked={mode === 'new'} onChange={() => setMode('new')} /> Import the data into a new table</label>
         {mode === 'new' && <div className="field-row" style={{ marginLeft: 22 }}><label>Table name</label><input className="inp" value={table} onChange={(e) => setTable(e.target.value)} /></div>}
@@ -121,7 +122,7 @@ function TabularImport({ p, src, close }: { p: WowProject; src: ImportSource; cl
             <td className="muted">{c.samples.slice(0, 3).map(fmt).join(', ')}</td></tr>)}</tbody></table></div>
       </div>}
       {step === 6 && <div>
-        <p className="mb-2">{mode === 'new' ? 'WOWDB suggested a data type for each field from its values. Change any that are wrong.' : 'Data types come from the existing table.'}</p>
+        <p className="mb-2">{mode === 'new' ? 'DBWOW suggested a data type for each field from its values. Change any that are wrong.' : 'Data types come from the existing table.'}</p>
         <div className="scroll-box"><table className="mini-grid" style={{ width: '100%' }}><thead><tr><th>Field</th><th>Data type</th><th>Invalid values</th></tr></thead>
           <tbody>{cols.filter((c) => c.target).map((c) => { const i = cols.indexOf(c); return <tr key={i}><td>{c.target}</td>
             <td style={{ padding: 0 }}>{mode === 'new' ? <select className="sel w-full" style={{ border: 0 }} value={c.type === 'Number' && c.numberSize === 'Double' ? 'Number (decimal)' : c.type} onChange={(e) => { const v = e.target.value; const t: DataType = v === 'Number (decimal)' ? 'Number' : v as DataType; setCols(cols.map((x, k) => (k === i ? recount({ ...x, type: t, numberSize: v === 'Number (decimal)' ? 'Double' : t === 'Number' ? 'Long Integer' : undefined }) : x))); }}>{[...DATA_TYPES.filter((t) => t !== 'AutoNumber' && t !== 'Calculated' && t !== 'Attachment'), 'Number (decimal)'].map((t) => <option key={t}>{t}</option>)}</select> : c.type}</td>
@@ -129,7 +130,7 @@ function TabularImport({ p, src, close }: { p: WowProject; src: ImportSource; cl
       </div>}
       {step === 7 && <div>
         {mode === 'new' && <><p className="mb-1">Primary key:</p>
-          <label className="flex items-center gap-2"><input type="radio" checked={pk === 'add'} onChange={() => setPk('add')} /> Let WOWDB add an AutoNumber primary key</label>
+          <label className="flex items-center gap-2"><input type="radio" checked={pk === 'add'} onChange={() => setPk('add')} /> Let DBWOW add an AutoNumber primary key</label>
           <label className="flex items-center gap-2"><input type="radio" checked={pk !== 'add' && pk !== 'none'} onChange={() => setPk(cols.find((c) => c.target)?.target ?? 'add')} /> Choose my own primary key: <select className="sel" disabled={pk === 'add' || pk === 'none'} value={pk} onChange={(e) => setPk(e.target.value)}>{cols.filter((c) => c.target).map((c) => <option key={c.index}>{c.target}</option>)}</select></label>
           <label className="flex items-center gap-2 mb-3"><input type="radio" checked={pk === 'none'} onChange={() => setPk('none')} /> No primary key</label></>}
         <p className="mb-1">Detect duplicate records using these field(s):</p>
@@ -366,21 +367,22 @@ export function BackupDialog({ p, projectId, mode, close }: { p: WowProject; pro
     const bytes = p.db.export();
     const d = new Date(); const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
     await saveBackup(projectId, `${p.name} ${stamp}`, bytes);
-    if (download) downloadBytes(bytes, `${safeFileName(p.name)}_${stamp}.wowdb`, 'application/x-sqlite3');
+    trackEvent('backup');
+    if (download) downloadBytes(bytes, `${safeFileName(p.name)}_${stamp}.dbwow`, 'application/x-sqlite3');
     setMsg(`Backup created${download ? ' and downloaded' : ''}.`); refresh();
   };
   return (
     <div>
       {mode === 'backup' ? <p className="mb-2">A backup is a complete copy of the database file (data, design, queries, forms, reports and layouts).</p> : <p className="mb-2">Choose a backup to restore. The current database is replaced by the backup (a safety backup of the current state is made first).</p>}
-      {mode === 'backup' && <div className="flex gap-2 mb-3"><button className="btn btn-primary" onClick={() => void backup(true)}>Back up and download .wowdb</button><button className="btn" onClick={() => void backup(false)}>Back up in browser only</button></div>}
+      {mode === 'backup' && <div className="flex gap-2 mb-3"><button className="btn btn-primary" onClick={() => void backup(true)}>Back up and download .dbwow</button><button className="btn" onClick={() => void backup(false)}>Back up in browser only</button></div>}
       <div className="small mb-1">Backups of this database stored in this browser:</div>
       <div className="scroll-box"><table className="mini-grid" style={{ width: '100%' }}><thead><tr><th>Name</th><th>Created</th><th>Size</th><th /></tr></thead>
         <tbody>{list.map((b) => <tr key={b.id}><td>{b.name}</td><td>{new Date(b.created).toLocaleString()}</td><td>{(b.size / 1024).toFixed(0)} KB</td><td className="flex gap-1">
           {mode === 'restore' && <button className="btn btn-sm btn-primary" onClick={async () => { const bytes = await loadBackup(b.id); if (bytes) { await saveBackup(projectId, `${p.name} (before restore)`, p.db.export()); close(bytes); } }}>Restore</button>}
-          <button className="btn btn-sm" onClick={async () => { const bytes = await loadBackup(b.id); if (bytes) downloadBytes(bytes, `${safeFileName(b.name)}.wowdb`); }}>Download</button>
+          <button className="btn btn-sm" onClick={async () => { const bytes = await loadBackup(b.id); if (bytes) downloadBytes(bytes, `${safeFileName(b.name)}.dbwow`); }}>Download</button>
           <button className="btn btn-sm" onClick={async () => { await deleteBackup(b.id); refresh(); }}>Delete</button></td></tr>)}
           {!list.length && <tr><td colSpan={4} className="muted">No backups yet.</td></tr>}</tbody></table></div>
-      {mode === 'restore' && <p className="muted small mt-2">To restore from a file, use File &gt; Open and choose the .wowdb file.</p>}
+      {mode === 'restore' && <p className="muted small mt-2">To restore from a file, use File &gt; Open and choose the .dbwow file.</p>}
       {msg && <div className="banner ok mt-2">{msg}</div>}
       <div className="dlg-buttons"><button className="btn" onClick={() => close(msg ? 'done' : null)}>Close</button></div>
     </div>

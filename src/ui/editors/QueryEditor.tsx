@@ -7,6 +7,7 @@ import { designToSql, emptyDesign, fieldsOfSource, newColumn, previewActionCount
 import { TableCanvas, type BoxDef } from '../designers/TableCanvas';
 import { DataGrid } from '../DataGrid';
 import { SqlEditor } from '../SqlEditor';
+import { trackEvent } from '../learning';
 import { useApp, type Tab } from '../store';
 import { useEditorCommands } from '../commands';
 import { askParameters, confirmBox, errorBox, messageBox, openDialog, promptBox, showContextMenu } from '../dialogs';
@@ -120,11 +121,12 @@ export function QueryEditor({ tab, active, project: p }: { tab: Tab; active: boo
     try {
       const r = runSql(p, sqlRun, vals);
       setResult(r);
+      if (st.mode === 'sql') trackEvent('sql-run');
       if (r.kind !== 'rows') setNotice(r.message ?? null);
       useApp.getState().setStatus(`Query returned ${r.rows.length} row(s) in ${r.ms.toFixed(1)} ms.`);
       return true;
     } catch (e) { setRunErr((e as Error).message); return false; }
-  }, [st.kind, currentSql, p, design, genSql.err]);
+  }, [st.kind, st.mode, currentSql, p, design, genSql.err]);
 
   const runAction = async () => {
     const def: QueryDef = { name: tab.name || 'Query', kind: st.kind, sql: currentSql, design };
@@ -135,10 +137,11 @@ export function QueryEditor({ tab, active, project: p }: { tab: Tab; active: boo
     const n = previewActionCount(p, def, vals);
     const verb = st.kind === 'delete' ? 'delete' : st.kind === 'update' ? 'update' : st.kind === 'append' ? 'append' : 'paste';
     const msg = st.kind === 'maketable' ? `You are about to paste ${n ?? 'the'} row(s) into a new table "${design.targetTable}".${p.getTable(design.targetTable ?? '') ? `\n\nThe existing table "${design.targetTable}" will be deleted first.` : ''}` : `You are about to ${verb} ${n ?? 'the matching'} row(s).`;
-    if (!(await confirmBox(`${msg}\n\nOnce you click Yes, you can't use the Undo command to reverse the changes.\nAre you sure you want to continue?`, { title: 'WOWDB', danger: st.kind === 'delete' || st.kind === 'maketable' }))) return;
+    if (!(await confirmBox(`${msg}\n\nOnce you click Yes, you can't use the Undo command to reverse the changes.\nAre you sure you want to continue?`, { title: 'DBWOW', danger: st.kind === 'delete' || st.kind === 'maketable' }))) return;
     try {
       const { runQuery } = await import('@/engine/queries');
       const r = runQuery(p, def, vals);
+      trackEvent('action-query');
       setNotice(r.message ?? 'Done.');
       void messageBox(r.message ?? 'Done.', 'Query complete');
     } catch (e) { void errorBox(e, 'Query failed'); }
@@ -395,6 +398,7 @@ export function QueryEditor({ tab, active, project: p }: { tab: Tab; active: boo
     try {
       const r = runSql(p, st.sql, vals);
       setResult(r);
+      trackEvent('sql-run');
       if (r.kind === 'rows') updateTab(tab.id, { view: 'datasheet' }); else setNotice(`${r.message} (${r.ms.toFixed(1)} ms)`);
     } catch (e) { setRunErr((e as Error).message); }
   }

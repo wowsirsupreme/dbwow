@@ -1,4 +1,4 @@
-# WOWDB Feature Status
+# DBWOW Feature Status
 
 Status key:
 
@@ -17,7 +17,7 @@ Last updated: 30 October 2026. Automated results: 45/45 engine tests, 10/10 acce
 | Ribbon: File, Home, Create, External Data, Database Tools, Help | Tested | Buttons are disabled when no handler applies to the current object. |
 | Context-sensitive ribbon tabs (Table, Query, Relationship, Form, Report, Print Preview) with the contextual tools label in the title bar | Tested | Forms: Design, Arrange, Format. Reports: Design, Arrange, Format, Page Setup. |
 | Tell me what you want to do | Tested | Searches the ribbon commands available for the current object. |
-| Form/report Themes, Colors, Fonts | Tested | Five built-in WOWDB themes applied to sections and controls. |
+| Form/report Themes, Colors, Fonts | Tested | Five built-in DBWOW themes applied to sections and controls. |
 | Format tab: font, size, bold/italic/underline, colours, alignment, number format, borders | Tested | |
 | Arrange tab: padding, size to tallest/widest etc., align, order, group | Tested | |
 | Navigation Pane: categories, search, sort, collapse, drag to canvas | Tested | |
@@ -189,7 +189,7 @@ Each has fictional records, primary keys, enforced relationships, example querie
 | Feature | Status | Notes |
 |---|---|---|
 | Macros (OpenForm, OpenReport, OpenTable, OpenQuery, RunQuery, MessageBox, CloseActiveObject) | Implemented | |
-| Modules | Partial | WOWDB modules are saved SQL scripts that run in one transaction. VBA is not supported, by design. |
+| Modules | Partial | DBWOW modules are saved SQL scripts that run in one transaction. VBA is not supported, by design. |
 
 ## Not in this release
 
