@@ -172,7 +172,7 @@ export default function App() {
       try { const r = runQuery(project, q, vals); void messageBox(r.message ?? 'Done.'); } catch (e) { void errorBox(e); }
     }
   };
-  const openLearning = (section: string) => { const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section } }); useApp.getState().updateTab(id, { payload: { section } }); };
+  const openLearning = (section: string) => { useApp.getState().setBackstage(false); const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section } }); useApp.getState().updateTab(id, { payload: { section } }); };
   const openTool = (view: string, title: string) => useApp.getState().openTab({ kind: 'tool', name: title, title, view });
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -292,18 +292,19 @@ export default function App() {
     useApp.getState().closeTab(id);
   };
 
+  const learningOpen = tabs.some((t) => t.kind === 'learning');
   if (booting) return <div className="empty-ws" style={{ height: '100vh' }}>Starting DBWOW…</div>;
   if (bootErr && !project) return <div className="empty-ws" style={{ height: '100vh', padding: 24 }}><div style={{ maxWidth: 560 }}><h1 style={{ fontSize: 22, color: 'var(--accent-dark)', marginBottom: 10 }}>DBWOW</h1><p>{bootErr}</p></div></div>;
 
   return (
     <div className="app">
       <TitleBar onSave={() => void ops.save()} />
-      {(project || !backstage) && <Ribbon />}
+      {(!project || !backstage) && <Ribbon />}
       <div className="main" style={{ position: 'relative' }}>
         {bootErr && <div className="banner err">{bootErr}</div>}
         {project && <NavPane openObject={openObject} runObject={(t, n) => void runObject(t, n)} actions={{ createForm: (n) => createForm(n), createReport: (n) => createReport(n), exportOf: (n) => doExport(undefined, n) }} />}
         <Workspace closeTab={(id) => void closeTabSafe(id)} openSample={(id) => void ops.newSample(id)} />
-        {(backstage || !project) && <Backstage ops={ops} />}
+        {(backstage || (!project && !learningOpen)) && <Backstage ops={ops} />}
       </div>
       {project && <PracticalPanel openInCentre={(id) => openLearning(`prac:${id}`)} openSample={(id) => void ops.newSample(id)} />}
       <Toasts />
@@ -356,7 +357,7 @@ function Workspace({ closeTab, openSample }: { closeTab: (id: string) => void; o
   const activeTabId = useApp((s) => s.activeTabId);
   const activate = useApp((s) => s.activate);
   const project = useApp((s) => s.project);
-  if (!project) return <div className="workspace" />;
+  if (!project && !tabs.length) return <div className="workspace" />;
   return (
     <div className="workspace">
       {tabs.length > 0 && (
@@ -370,7 +371,7 @@ function Workspace({ closeTab, openSample }: { closeTab: (id: string) => void; o
         </div>
       )}
       <div className="doc-body">
-        {!tabs.length && <div className="empty-ws"><div><div style={{ fontSize: 16, marginBottom: 6 }}>{project.name}</div><div>Open an object from the Navigation Pane, or use the <b>CREATE</b> tab to build a table, query, form or report.</div><div className="small mt-2">New to databases? Open <button className="link" onClick={() => runCommand('help.learning', null)}>the Learning Centre</button>.</div></div></div>}
+        {!tabs.length && project && <div className="empty-ws"><div><div style={{ fontSize: 16, marginBottom: 6 }}>{project.name}</div><div>Open an object from the Navigation Pane, or use the <b>CREATE</b> tab to build a table, query, form or report.</div><div className="small mt-2">New to databases? Open <button className="link" onClick={() => runCommand('help.learning', null)}>the Learning Centre</button>.</div></div></div>}
         {tabs.map((t) => (
           <div key={t.id} className={'doc-pane' + (t.id === activeTabId ? '' : ' hidden')}>
             <Editor tab={t} active={t.id === activeTabId} openSample={openSample} />
@@ -382,7 +383,8 @@ function Workspace({ closeTab, openSample }: { closeTab: (id: string) => void; o
 }
 
 function Editor({ tab, active, openSample }: { tab: Tab; active: boolean; openSample: (id: string) => void }) {
-  const project = useApp((s) => s.project)!;
+  const maybeProject = useApp((s) => s.project);
+  const project = maybeProject!;
   const updateTab = useApp((s) => s.updateTab);
   // auto-run queries opened from the Navigation Pane
   useEffect(() => {
@@ -396,7 +398,7 @@ function Editor({ tab, active, openSample }: { tab: Tab; active: boolean; openSa
     case 'report': return <ReportEditor tab={tab} active={active} project={project} />;
     case 'macro': return <MacroEditor tab={tab} active={active} project={project} />;
     case 'module': return <ModuleEditor tab={tab} active={active} project={project} />;
-    case 'learning': return <LearningCentre tab={tab} project={project} openSample={openSample} />;
+    case 'learning': return <LearningCentre tab={tab} project={maybeProject} openSample={openSample} />;
     case 'tool': return <ToolView tab={tab} project={project} />;
   }
 }

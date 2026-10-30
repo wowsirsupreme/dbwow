@@ -32,6 +32,9 @@ The interface follows the familiar desktop database layout: ribbon with contextu
 | Form Design Tools: Format tab | ![Form format](docs/screenshots/08-form-format.png) |
 | Report Design View (Report Header, Page Header, group sections, Detail, Page Footer, Report Footer) | ![Report design](docs/screenshots/11-report-design.png) |
 | Print Preview | ![Print preview](docs/screenshots/13-report-preview.png) |
+| Learning Centre (works with or without a database open) | ![Learning Centre](docs/screenshots/14-learning-centre.png) |
+| Practical checklist beside the work, ticking steps live | ![Practical panel](docs/screenshots/15-practical-panel.png) |
+| Achievements, trophies, XP and rank | ![Achievements](docs/screenshots/16-achievements.png) |
 
 To refresh them: `npm run build:portable && node tests/e2e/screens.cjs docs/screenshots`.
 

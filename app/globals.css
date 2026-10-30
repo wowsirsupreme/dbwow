@@ -493,3 +493,5 @@ textarea.inp { height: auto; padding: 4px 5px; resize: vertical; }
 @keyframes lt-in { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .lt-toast { animation: none; } .pp-bar > div { transition: none; } }
 @media (max-width: 760px) { .pp { left: 8px; right: 8px; width: auto; max-height: 45vh; } .lt-toasts { left: 8px; right: 8px; width: auto; top: 70px; } }
+
+.lc-work .btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; }

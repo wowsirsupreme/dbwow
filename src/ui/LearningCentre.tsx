@@ -130,9 +130,9 @@ function PracticalView({ x, p, progress, openSample }: { x: Practical; p: WowPro
       {sampleInfo && !onSample && <div className="banner warn mb-3" style={{ border: '1px solid #f2cf99' }}>This activity uses the {sampleInfo.name} sample database. <button className="btn btn-sm" onClick={() => openSample(sampleInfo.id)}>Open a fresh copy</button></div>}
       <div className="lc-work mb-3">
         <div style={{ flex: 1 }}>Steps tick themselves off while you work: each one is checked against the real database every time it changes. Steps found in a design you have not saved yet show as <b className="pending-word">save to confirm</b>.</div>
-        {active === x.id
+        {!p ? <>{x.sample && <button className="btn" onClick={() => openSample(x.sample!)}>Open the sample database</button>}<button className="btn btn-primary" onClick={() => useApp.getState().setRibbonTab('file')}>Create or open a database</button></> : active === x.id
           ? <button className="btn" onClick={() => setActive(null)}>Hide the checklist panel</button>
-          : <button className="btn btn-primary" data-testid="work-alongside" onClick={() => setActive(x.id)}><PanelRightOpen size={14} style={{ marginRight: 5, verticalAlign: -2 }} />Work on this beside my database</button>}
+          : <button className="btn btn-primary" data-testid="work-alongside" onClick={() => setActive(x.id)}><PanelRightOpen size={14} />Work on this beside my database</button>}
       </div>
       {x.steps.map((s, i) => {
         const r = states[i];
@@ -152,7 +152,6 @@ function PracticalView({ x, p, progress, openSample }: { x: Practical; p: WowPro
       {firstOpen === -1 && <div className="banner ok" style={{ border: '1px solid #b9dfbb' }}>Excellent: every step is complete and verified against your database.</div>}
       {firstOpen !== -1 && everDone > 0 && <p className="small muted mt-2">Steps already earned on this device: {everDone} of {x.steps.length}. Your XP for a step is kept even if you later change the database.</p>}
       {x.modelAnswer && <div className="mt-3"><button className="btn btn-sm" onClick={() => setModel(!model)}>{model ? 'Hide' : 'Show'} model answer</button>{model && <pre className="sqled" style={{ position: 'static', border: '1px solid var(--line)', marginTop: 6, padding: 10, whiteSpace: 'pre-wrap' }}>{highlightSql(x.modelAnswer)}</pre>}</div>}
-      {!p && <p className="muted mt-3">Open or create a database to start.</p>}
       <span style={{ display: 'none' }}><Circle /></span>
     </div>
   );

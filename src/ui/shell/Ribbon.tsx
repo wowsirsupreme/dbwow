@@ -188,13 +188,13 @@ export function Ribbon() {
         <button className="rtab" title={collapsed ? 'Expand the ribbon' : 'Collapse the ribbon'} onClick={() => setCollapsed((c) => !c)}>{collapsed ? <I.ChevronDown size={14} /> : <I.ChevronUp size={14} />}</button>
       </div>
       <div className={'ribbon' + (collapsed ? ' collapsed' : '')}>
-        {project && cur && cur.groups.map((g, i) => (
+        {(project || cur?.id === 'help') && cur && cur.groups.map((g, i) => (
           <div className="rgroup" key={i}>
             <div className="rgroup-body">{g.items.map((it, j) => <RItem key={j} item={it} tabId={activeTabId} />)}</div>
             <div className="rgroup-label">{g.label}</div>
           </div>
         ))}
-        {!project && <div className="muted" style={{ padding: 20 }}>Create or open a database to use the ribbon commands.</div>}
+        {!project && cur?.id !== 'help' && <div className="muted" style={{ padding: 20 }}>Create or open a database to use these commands. The Learning Centre on the HELP tab works without one.</div>}
       </div>
     </>
   );

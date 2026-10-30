@@ -19,6 +19,21 @@ async function step(name, fn) {
   const panelStep = (i) => page.locator(`[data-testid="practical-panel"] .pp-step[data-step="${i}"]`);
   const progress = () => page.evaluate(() => JSON.parse(localStorage.getItem('dbwow.learning') || '{}'));
 
+  await step('Learning Centre works before any database is open, and stays open after one is created', async () => {
+    await page.click('.rtab:text-is("HELP")');
+    assert.equal(await page.locator('[data-cmd="help.learning"]').isEnabled(), true, 'HELP ribbon usable without a database');
+    await page.click('[data-cmd="help.learning"]');
+    await page.waitForSelector('.lc-main h2');
+    assert.equal(await page.locator('[data-testid="backstage"]').count(), 0, 'start screen hidden while learning');
+    await page.click('.lc-side .it:has-text("Primary keys")');
+    await page.locator('.quiz-opt').first().click();
+    await page.click('.lc-side .it:has-text("Create a Student Database")');
+    assert.ok(await page.locator('.lc-main button:has-text("Create or open a database")').isVisible());
+    await shot('l0-learning-no-db');
+    await page.click('.lc-main button:has-text("Create or open a database")');
+    await page.waitForSelector('[data-testid="backstage"]');
+  });
+
   await step('Practical panel stays beside the work and ticks steps live (pending until saved)', async () => {
     await page.click('[data-testid="new-blank"]');
     await prompt('SchoolDB');

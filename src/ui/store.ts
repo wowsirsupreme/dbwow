@@ -60,7 +60,8 @@ export const useApp = create<AppState>((set, get) => ({
       unsub = p.db.onChange(() => { useApp.setState({ version: useApp.getState().version + 1 }); scheduleSave(); }) as () => void;
       rememberLast(id);
     }
-    set({ project: p, projectId: id, tabs: [], activeTabId: null, version: get().version + 1, backstage: false, ribbonTab: 'home', savedAt: p ? new Date().toLocaleTimeString() : null, selection: {} });
+    const keep = get().tabs.filter((t) => t.kind === 'learning');   // the Learning Centre stays open across databases
+    set({ project: p, projectId: id, tabs: keep, activeTabId: keep[0]?.id ?? null, version: get().version + 1, backstage: false, ribbonTab: 'home', savedAt: p ? new Date().toLocaleTimeString() : null, selection: {} });
   },
   bump: () => set({ version: get().version + 1 }),
   openTab: (t) => {

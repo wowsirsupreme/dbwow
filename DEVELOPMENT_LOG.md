@@ -1,5 +1,13 @@
 # DBWOW Development Log
 
+## 30 October 2026 — Release 0.3.2: Learning Centre without a database; app icon
+
+* The Learning Centre opens before any database exists (HELP tab and File > Learning Centre), and stays open when a database is created, opened or closed. Practicals show "Create or open a database" (and "Open the sample database") until one is open.
+* The ribbon is visible on the start screen so HELP can be reached.
+* DBWOW icon added: browser tab icon and home-screen icon (Next.js app/icon.png, app/apple-icon.png; inlined in the portable build).
+* README screenshots retaken with the DB logo; new screenshots of the Learning Centre, the practical panel and achievements.
+* Results: 52 engine tests; 6/6 learning, 10/10 acceptance and 12/12 feature steps on both builds.
+
 ## 30 October 2026 — Release 0.3.1: DBWOW name everywhere
 
 * Logo mark changed from "W" to "DB".
