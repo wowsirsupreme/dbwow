@@ -7,7 +7,7 @@ import { DataGrid } from '../DataGrid';
 import { TableDesigner, uniqueFieldName } from '../designers/TableDesigner';
 import { useApp, type Tab } from '../store';
 import { useEditorCommands } from '../commands';
-import { confirmBox, errorBox, promptBox, yesNoCancel } from '../dialogs';
+import { confirmBox, errorBox, messageBox, promptBox, yesNoCancel } from '../dialogs';
 import { useHistory } from '../useHistory';
 import { LearnTip } from '../shell/LearnTip';
 import { useLearning } from '../learning';
@@ -118,6 +118,8 @@ export function TableEditor({ tab, active, project: p }: { tab: Tab; active: boo
     ...(ds ? {
       'ds.addText': () => void addField('Short Text'), 'ds.addNumber': () => void addField('Number'), 'ds.addCurrency': () => void addField('Currency'),
       'ds.addDate': () => void addField('Date/Time'), 'ds.addYesNo': () => void addField('Yes/No'), 'ds.addLongText': () => void addField('Long Text'),
+      'ds.addAttachment': () => void addField('Attachment'), 'ds.addHyperlink': () => void addField('Hyperlink'),
+      'ds.tableInfo': () => { const t = p.getTable(tab.name); if (!t) return; const n = Number(p.db.scalar(`SELECT count(*) FROM "${tab.name.replace(/"/g, '""')}"`)); void messageBox(`${t.name}\n\nFields: ${t.fields.length}\nRecords: ${n}\nPrimary key: ${t.fields.filter((f) => f.primaryKey).map((f) => f.name).join(', ') || '(none)'}\nRelationships: ${p.relationships().filter((r) => r.primaryTable === t.name || r.relatedTable === t.name).map((r) => `${r.primaryTable} → ${r.relatedTable}`).join(', ') || '(none)'}`, 'Table Info'); },
       'ds.deleteField': { run: () => void deleteField(), enabled: !!selCol }, 'ds.renameField': { run: () => void renameField(), enabled: !!selCol },
     } : {}),
   });

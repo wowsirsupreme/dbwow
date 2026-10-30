@@ -1,5 +1,15 @@
 # DBWOW Development Log
 
+## 30 October 2026 — Release 0.4.0: accounts, cloud saving, sharing, pictures, contextual tabs
+
+* Accounts (Firebase Authentication: email/password, Google, password reset). Signed-in students' databases upload to Cloud Firestore a few seconds after each change; Learning Centre progress and trophies are merged across devices (nothing earned on either device is lost). File > Account lists the databases in the account; opening one on another device downloads it.
+* Sharing: File > Share creates a link (?share=…). Anyone who opens it gets their own copy; the shared copy updates whenever the owner's work is saved. Stop sharing deletes it.
+* Storage design: database files are split into chunks below Firestore's 1 MiB document limit, written as a new generation before the metadata switches, so a reader never sees half a save. Works on the free Spark plan (no Cloud Storage needed). Limit 15 MB per database. Rules in firestore.rules.
+* Without an account (or in the portable file) nothing changes: work stays in the browser.
+* Pictures: Attachment fields show thumbnails in Datasheet View; right-click to insert, view or remove; form picture boxes can be changed by double-clicking. Large photos are scaled to at most 1024 px and recompressed (about 350 KB at most) so databases stay shareable. FIELDS tab: new "Image / File" and "Hyperlink" field buttons.
+* Contextual tabs now come forward when an object opens, as in Access. Datasheet View has TABLE TOOLS: FIELDS and TABLE.
+* Tests: 54 engine tests; new tests/e2e/accounts.cjs (6 steps: register, cross-device sign-in and merge, share link, pictures, contextual tabs, no-account mode) using a stand-in cloud; all suites pass on both builds.
+
 ## 30 October 2026 — Release 0.3.2: Learning Centre without a database; app icon
 
 * The Learning Centre opens before any database exists (HELP tab and File > Learning Centre), and stays open when a database is created, opened or closed. Practicals show "Create or open a database" (and "Open the sample database") until one is open.

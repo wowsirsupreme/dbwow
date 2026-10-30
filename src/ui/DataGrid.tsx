@@ -465,6 +465,10 @@ export function DataGrid(props: DataGridProps) {
       { label: 'Clear all filters', onClick: () => setFilters({}), disabled: !Object.keys(filters).length },
       { separator: true },
       { label: 'Delete Record', onClick: () => void deleteSelected(), disabled: !canDelete || r >= rows.length },
+      ...(c.field?.type === 'Attachment' ? [{ separator: true } as const,
+        { label: v ? 'Replace Picture…' : 'Insert Picture…', onClick: () => void attach(r, c), disabled: readOnlyCol(c) },
+        { label: 'View Picture', onClick: () => viewPicture(String(v), c.name), disabled: !v },
+        { label: 'Remove Picture', onClick: () => setPendingValue(r, c.name, null), disabled: !v || readOnlyCol(c) }] : []),
     ]);
   };
 
@@ -676,7 +680,7 @@ function renderCell(v: unknown, c: GridColumn, lookups: Lookups, placeholder: bo
   if (placeholder) return f?.type === 'AutoNumber' ? '(New)' : f?.type === 'Yes/No' ? <input type="checkbox" className="chk" checked={false} readOnly onClick={toggle} /> : '';
   if (f?.type === 'Yes/No') return <input type="checkbox" className="chk" checked={!!v && v !== '0'} readOnly onClick={(e) => { e.stopPropagation(); toggle(); }} style={{ pointerEvents: 'auto' }} />;
   if (f?.type === 'Hyperlink' && v) { const s = String(v); const href = /^[a-z]+:/i.test(s) ? s : s.includes('@') ? `mailto:${s}` : `https://${s}`; return <a href={href} target="_blank" rel="noreferrer noopener" onClick={(e) => { if (!(e.ctrlKey || e.metaKey)) e.preventDefault(); }} title="Ctrl+click to open">{s}</a>; }
-  if (f?.type === 'Attachment') return v ? <span title="Double-click to replace"><Paperclip size={12} style={{ display: 'inline' }} /> (1)</span> : <span className="muted"><Paperclip size={12} style={{ display: 'inline' }} /> (0)</span>;
+  if (f?.type === 'Attachment') { const s = String(v ?? ''); if (s.startsWith('data:image') || /^https?:\/\/.+\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(s)) return <img className="ds-thumb" src={s} alt="" title="Double-click to replace · right-click to view or remove" />; return v ? <span title="Double-click to replace"><Paperclip size={12} style={{ display: 'inline' }} /> (1)</span> : <span className="muted" title="Double-click to insert a picture"><Paperclip size={12} style={{ display: 'inline' }} /> (0)</span>; }
   return displayText(v, c, lookups);
 }
 
@@ -714,17 +718,53 @@ export function applyMask(v: string, mask?: string): string {
   return m.startsWith('>') ? out.toUpperCase() : out;
 }
 
+/**
+ * Let the user choose a picture and return it as a data URL ready to store in
+ * an Attachment field. Large photos are scaled down (longest side 1024 px) and
+ * re-encoded so a database with pictures stays small enough to share.
+ */
 export function pickImage(): Promise<string | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
+    input.type = 'file'; input.accept = 'image/png,image/jpeg,image/gif,image/webp,image/bmp,image/svg+xml';
     input.onchange = () => {
       const f = input.files?.[0]; if (!f) { resolve(null); return; }
-      if (f.size > 2_000_000) { void messageBox('Please choose an image smaller than 2 MB.', 'Attachment', 'warn'); resolve(null); return; }
-      const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = () => resolve(null); r.readAsDataURL(f);
+      if (f.size > 15_000_000) { void messageBox('Please choose a picture smaller than 15 MB.', 'Insert Picture', 'warn'); resolve(null); return; }
+      const r = new FileReader();
+      r.onerror = () => resolve(null);
+      r.onload = () => { void shrinkImage(String(r.result), f.type).then(resolve); };
+      r.readAsDataURL(f);
     };
     input.click();
   });
+}
+
+export async function shrinkImage(dataUrl: string, type: string, maxSide = 1024, maxBytes = 350_000): Promise<string | null> {
+  if (type === 'image/svg+xml' || type === 'image/gif') return dataUrl.length <= 1_400_000 ? dataUrl : (void messageBox('That picture is too large to store. Please use a PNG or JPEG photo.', 'Insert Picture', 'warn'), null);
+  const img = new Image();
+  const ok = await new Promise<boolean>((res) => { img.onload = () => res(true); img.onerror = () => res(false); img.src = dataUrl; });
+  if (!ok) { void messageBox('This file could not be read as a picture.', 'Insert Picture', 'warn'); return null; }
+  const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+  if (scale === 1 && dataUrl.length * 0.75 <= maxBytes) return dataUrl;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext('2d'); if (!ctx) return dataUrl;
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  // keep PNG for small images with transparency (logos), otherwise JPEG
+  if (type === 'image/png') { const png = canvas.toDataURL('image/png'); if (png.length * 0.75 <= maxBytes) return png; }
+  for (const q of [0.85, 0.75, 0.6, 0.45]) { const jpg = canvas.toDataURL('image/jpeg', q); if (jpg.length * 0.75 <= maxBytes || q === 0.45) return jpg; }
+  return null;
+}
+
+/** Full-size view of a stored picture. */
+export function viewPicture(src: string, title: string) {
+  void openDialog(title, (close) => (
+    <div style={{ textAlign: 'center' }}>
+      <img src={src} alt={title} style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', border: '1px solid var(--line-soft)' }} />
+      <div className="small muted mt-2">{Math.round((src.length * 0.75) / 1024)} KB stored in the database</div>
+      <div className="dlg-buttons"><button className="btn btn-primary" onClick={() => close(null)}>Close</button></div>
+    </div>
+  ), 640);
 }
 
 // ---------------- dialogs ----------------

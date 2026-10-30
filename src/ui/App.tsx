@@ -15,6 +15,9 @@ import { runCommand, runCommandAsync, useGlobalCommands, useCmdState } from './c
 import { DialogLayer, ContextMenuLayer, openDialog, messageBox, errorBox, confirmBox, promptBox, yesNoCancel, askParameters } from './dialogs';
 import { Ribbon, useCtxBand } from './shell/Ribbon';
 import { PracticalPanel, RankBadge, Toasts, trackEvent, useLearningTracker } from './learning';
+import { AccountButton, takeSharedLink } from './cloud';
+import { getBackend, startCloud } from '@/cloud/sync';
+import { cloudMessage } from '@/cloud/backend';
 import { NavPane } from './shell/NavPane';
 import { Backstage, type BackstageOps } from './shell/Backstage';
 import { TableEditor } from './editors/TableEditor';
@@ -68,6 +71,18 @@ export default function App() {
       if (id === useApp.getState().projectId) { useApp.getState().setBackstage(false); return; }
       if (project && !(await confirmCloseAll())) return;
       try { const s = await loadProject(id); if (!s) throw new Error('That database was not found in browser storage.'); const p = await WowProject.open(s.bytes); await adopt(p, id, false); } catch (e) { void errorBox(e, 'Could not open the database'); }
+    },
+    openCloud: async (id, name) => {
+      if (id === useApp.getState().projectId) { useApp.getState().setBackstage(false); return; }
+      if (project && !(await confirmCloseAll())) return;
+      try {
+        useApp.getState().setStatus(`Downloading "${name}" from your account…`);
+        const bytes = await getBackend()!.loadDatabase(id);
+        if (!bytes) throw new Error('That database is no longer in your account.');
+        const p = await WowProject.open(bytes);
+        await adopt(p, id);
+        useApp.getState().setStatus(`Opened "${name}" from your account.`);
+      } catch (e) { void errorBox(cloudMessage(e), 'Could not open the database'); }
     },
     openFile: async () => {
       const f = await pickFile('.dbwow,.wowdb,.db,.sqlite,.sqlite3,.db3');
@@ -143,6 +158,9 @@ export default function App() {
         if (id) { const s = await loadProject(id); if (s) { const p = await WowProject.open(s.bytes); useApp.getState().setProject(p, id); } }
       } catch (e) { setBootErr((e as Error).message); }
       setBooting(false);
+      startCloud();
+      const shared = await takeSharedLink();
+      if (shared) { try { const p = await WowProject.open(shared.bytes); await adopt(p, newId()); useApp.getState().setStatus(`Opened a copy of "${shared.name}".`); } catch (e) { void errorBox(e, 'Could not open the shared database'); } }
       if (!useApp.getState().project) useApp.getState().setBackstage(true);
     })();
     const beforeUnload = () => { void saveNow(); };
@@ -342,6 +360,7 @@ function TitleBar({ onSave }: { onSave: () => void }) {
       <div className="title-text" ref={titleRef} style={band && titleLeft !== null && band.left + band.width > window.innerWidth / 2 - 160 ? { textAlign: 'left', paddingLeft: Math.max(0, band.left + band.width + 24 - titleLeft) } : undefined}>{project ? `${activeTitle ? activeTitle + ' : ' : ''}${project.name} : Database — DBWOW` : 'DBWOW — Educational Database Environment'}</div>
       <div className="title-right">
         {project && <span title="Your changes are stored in this browser automatically"><span className={'save-dot' + (saving ? ' busy' : '')} /><span className="hide-sm">{saving ? 'Saving…' : savedAt ? `Saved ${savedAt}` : ''}</span></span>}
+        <AccountButton onOpenAccount={() => { useApp.getState().setRibbonTab('file'); setTimeout(() => (document.querySelector('[data-testid="bs-account"]') as HTMLElement | null)?.click(), 0); }} />
         <RankBadge onOpen={() => { const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section: 'ach:all' } }); useApp.getState().updateTab(id, { payload: { section: 'ach:all' } }); }} />
         <button className="qat" style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} title="Learning Mode shows contextual tips in every designer" onClick={() => useApp.getState().setLearningMode(!learningMode)}><GraduationCap size={15} /><span className="hide-sm">{learningMode ? 'Learning Mode: On' : 'Learning Mode: Off'}</span></button>
         <button style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer' }} title="Options" onClick={() => { useApp.getState().setRibbonTab('file'); }}><Settings size={15} /></button>

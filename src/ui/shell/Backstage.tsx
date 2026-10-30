@@ -1,6 +1,8 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Database, FilePlus, FolderOpen, Trash2, GraduationCap } from 'lucide-react';
+import { ArrowLeft, Cloud, Database, FilePlus, FolderOpen, Trash2, GraduationCap } from 'lucide-react';
+import { AccountPage, SharePage } from '../cloud';
+import { useCloud } from '@/cloud/sync';
 import { listProjects, type ProjectInfo } from '@/engine/persistence';
 import { SAMPLE_LIST } from '@/engine/samples';
 import { useApp } from '../store';
@@ -9,6 +11,7 @@ export interface BackstageOps {
   newBlank: () => void; newSample: (id: string) => void; openStored: (id: string) => void; openFile: () => void;
   save: () => void; saveAs: () => void; downloadCopy: () => void; properties: () => void; backup: () => void; restore: () => void;
   compact: () => void; exportDb: () => void; print: () => void; close: () => void; deleteStored: (id: string, name: string) => void; learning: () => void;
+  openCloud: (id: string, name: string) => void;
 }
 
 export function Backstage({ ops }: { ops: BackstageOps }) {
@@ -17,7 +20,9 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
   const setBackstage = useApp((s) => s.setBackstage);
   const setRibbonTab = useApp((s) => s.setRibbonTab);
   const version = useApp((s) => s.version);
-  const [page, setPage] = useState<'info' | 'new' | 'open'>(project ? 'info' : 'new');
+  const [page, setPage] = useState<'info' | 'new' | 'open' | 'account' | 'share'>(project ? 'info' : 'new');
+  const cloudUser = useCloud((s) => s.user);
+  const cloudOn = useCloud((s) => s.available);
   const [recent, setRecent] = useState<ProjectInfo[]>([]);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { listProjects().then(setRecent).catch((e) => setErr((e as Error).message)); }, [version, page]);
@@ -34,10 +39,12 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
         <button disabled={!project} onClick={() => { ops.save(); back(); }}>Save</button>
         <button disabled={!project} onClick={ops.saveAs}>Save As</button>
         <button disabled={!project} onClick={ops.downloadCopy}>Download (.dbwow)</button>
+        <button disabled={!project} className={page === 'share' ? 'active' : ''} onClick={() => setPage('share')} data-testid="bs-share">Share</button>
         <button disabled={!project} onClick={ops.exportDb}>Export</button>
         <button disabled={!project} onClick={ops.print}>Print</button>
         <button disabled={!project} onClick={ops.close}>Close</button>
         <div style={{ flex: 1 }} />
+        {cloudOn && <button className={page === 'account' ? 'active' : ''} onClick={() => setPage('account')} data-testid="bs-account"><Cloud size={14} style={{ display: 'inline', marginRight: 6 }} />{cloudUser ? 'Account' : 'Sign in / Register'}</button>}
         <button onClick={ops.learning}><GraduationCap size={14} style={{ display: 'inline', marginRight: 6 }} />Learning Centre</button>
       </div>
       <div className="bs-main">
@@ -53,9 +60,11 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
               <button className="tile" onClick={ops.backup}><span className="t">Back Up Database</span><span className="d">Keep a copy in the browser and/or download it.</span></button>
               <button className="tile" onClick={ops.restore}><span className="t">Restore</span><span className="d">Go back to an earlier backup.</span></button>
             </div>
-            <p className="muted small mt-3">Every change is saved automatically to this browser&apos;s storage. Use Download to keep a .dbwow file (a standard SQLite database) on your computer or USB drive. Project ID: {projectId}</p>
+            <p className="muted small mt-3">Every change is saved automatically to this browser&apos;s storage{cloudUser ? ' and to your account' : ''}. Use Download to keep a .dbwow file (a standard SQLite database) on your computer or USB drive. Project ID: {projectId}</p>
           </div>
         )}
+        {page === 'account' && <AccountPage openCloud={ops.openCloud} />}
+        {page === 'share' && <SharePage goAccount={() => setPage('account')} />}
         {page === 'new' && (
           <div>
             <h1>New</h1>
@@ -72,6 +81,7 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
           <div>
             <h1>Open</h1>
             <button className="btn btn-primary mb-3" onClick={ops.openFile}><FolderOpen size={14} style={{ display: 'inline', marginRight: 6 }} />Browse for a .dbwow / .wowdb / .db / .sqlite file…</button>
+            {cloudOn && <p className="small muted mb-2">{cloudUser ? <>Databases saved in your account are under <button className="link" onClick={() => setPage('account')}>Account</button>.</> : <>Have an account? <button className="link" onClick={() => setPage('account')}>Sign in</button> to open your databases from any device.</>}</p>}
             <h2>Recent (stored in this browser)</h2>
             <div className="recent">
               {recent.map((r) => (

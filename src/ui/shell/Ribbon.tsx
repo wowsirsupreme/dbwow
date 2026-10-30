@@ -1,6 +1,6 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
 import * as I from 'lucide-react';
 import { useApp } from '../store';
@@ -96,10 +96,15 @@ const TABS: RibbonTab[] = [
   ] },
   { id: 'ctx-table-fields', label: 'FIELDS', ctx: 'TABLE TOOLS', groups: [
     { label: 'Views', items: [VIEW_MENU] },
-    { label: 'Add & Delete', items: [col(sm('ds.addText', 'Short Text', I.Type), sm('ds.addNumber', 'Number', I.Hash), sm('ds.addCurrency', 'Currency', I.Sigma)), col(sm('ds.addDate', 'Date & Time', I.Calendar), sm('ds.addYesNo', 'Yes/No', I.CheckSquare), sm('ds.addLongText', 'Long Text', I.ScrollText)), col(sm('ds.renameField', 'Name & Caption', I.Pencil), sm('ds.deleteField', 'Delete Field', I.Trash2))] },
+    { label: 'Add & Delete', items: [col(sm('ds.addText', 'Short Text', I.Type), sm('ds.addNumber', 'Number', I.Hash), sm('ds.addCurrency', 'Currency', I.Sigma)), col(sm('ds.addDate', 'Date & Time', I.Calendar), sm('ds.addYesNo', 'Yes/No', I.CheckSquare), sm('ds.addLongText', 'Long Text', I.ScrollText)), col(sm('ds.addAttachment', 'Image / File', I.ImagePlus), sm('ds.addHyperlink', 'Hyperlink', I.Link2)), col(sm('ds.renameField', 'Name & Caption', I.Pencil), sm('ds.deleteField', 'Delete Field', I.Trash2))] },
     { label: 'Fields', items: [col(sm('ds.hideFields', 'Hide Fields', I.EyeOff), sm('ds.unhideFields', 'Unhide Fields', I.Eye), sm('ds.resetLayout', 'Reset Layout', I.Columns3))] },
     { label: 'Sort & Filter', items: [col(sm('home.sortAsc', 'Ascending', I.ArrowUpAZ), sm('home.sortDesc', 'Descending', I.ArrowDownAZ), sm('home.toggleFilter', 'Toggle Filter', I.FilterX))] },
     RECORDS,
+  ] },
+  { id: 'ctx-table-table', label: 'TABLE', ctx: 'TABLE TOOLS', groups: [
+    { label: 'Properties', items: [lg('view.design', 'Table Design', I.PencilRuler), lg('ds.tableInfo', 'Table Info', I.Info)] },
+    { label: 'Relationships', items: [lg('tools.relationships', 'Relation-ships', I.GitFork), lg('tools.dependencies', 'Object Dependencies', I.ListTree)] },
+    { label: 'Data', items: [col(sm('ext.exportCsv', 'Export CSV', I.FileText), sm('ext.exportExcel', 'Export Excel', I.FileSpreadsheet), sm('home.refresh', 'Refresh', I.RefreshCw))] },
   ] },
   { id: 'ctx-query', label: 'DESIGN', ctx: 'QUERY TOOLS', groups: [
     { label: 'Results', items: [VIEW_MENU, lg('q.run', 'Run', I.Play)] },
@@ -160,6 +165,14 @@ export function Ribbon() {
   const visible = TABS.filter((t) => !t.ctx || ctxIds.includes(t.id));
   const cur = visible.find((t) => t.id === ribbonTab) ?? visible[0];
   const ctxRef = useRef<HTMLDivElement>(null);
+  // Access brings the contextual tab forward when you open an object in a design view
+  const ctxKey = `${activeTabId ?? ''}|${ctxIds.join(',')}`;
+  const lastCtx = useRef('');
+  useEffect(() => {
+    if (ctxKey === lastCtx.current) return;
+    lastCtx.current = ctxKey;
+    if (ctxIds.length && !useApp.getState().backstage) setRibbonTab(ctxIds[0]);
+  }, [ctxKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const ctxTabs = visible.filter((t) => t.ctx);
   const ctxLabel = ctxTabs[0]?.ctx ?? '';
   useLayoutEffect(() => {
@@ -248,7 +261,7 @@ function TellMe({ tabId }: { tabId: string | null }) {
 }
 
 function ctxTabsFor(kind?: string, view?: string): string[] {
-  if (kind === 'table') return view === 'design' ? ['ctx-table-design'] : ['ctx-table-fields'];
+  if (kind === 'table') return view === 'design' ? ['ctx-table-design'] : ['ctx-table-fields', 'ctx-table-table'];
   if (kind === 'query') return ['ctx-query'];
   if (kind === 'relationships') return ['ctx-relationships'];
   if (kind === 'form' && view === 'design') return ['ctx-form-design', 'ctx-form-arrange', 'ctx-form-format'];

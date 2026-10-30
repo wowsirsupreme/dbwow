@@ -12,9 +12,9 @@ import { q } from '@/engine/sqlite';
 import { evalControlSource, formatValue, parseCriteria, evaluate, parseExpr } from '@/engine/expr';
 import { useApp } from './store';
 import { useEditorCommands } from './commands';
-import { confirmBox, errorBox, messageBox, askParameters } from './dialogs';
+import { confirmBox, errorBox, messageBox, askParameters, showContextMenu } from './dialogs';
 import { runAction } from './actions';
-import { DataGrid, applyMask } from './DataGrid';
+import { DataGrid, applyMask, pickImage, viewPicture } from './DataGrid';
 import { ctlStyle } from './designers/DesignCanvas';
 import { ReportPreview } from './ReportPreview';
 
@@ -285,7 +285,9 @@ function FormControl({ c, p, rec, records, active, invalid, editable, getValue, 
     case 'label': return <div className={cls} style={style} onClick={() => pr.onClick && pr.onClick !== 'None' && void runAction(String(pr.onClick), String(pr.onClickArgument ?? ''), nav)}>{String(pr.caption ?? '')}</div>;
     case 'rectangle': return <div className={cls} style={style} />;
     case 'line': return <div className={cls} style={style}><svg width="100%" height="100%" style={{ overflow: 'visible' }}>{c.w >= c.h ? <line x1={0} y1="50%" x2="100%" y2="50%" stroke={String(pr.borderColor ?? '#000')} strokeWidth={Number(pr.borderWidth ?? 1)} /> : <line x1="50%" y1={0} x2="50%" y2="100%" stroke={String(pr.borderColor ?? '#000')} strokeWidth={Number(pr.borderWidth ?? 1)} />}</svg></div>;
-    case 'image': { const img = bound ? String(v ?? '') : String(pr.picture ?? ''); return <div className={cls} style={style}>{img.startsWith('data:image') || /^https?:/.test(img) ? <img src={img} alt={c.name} style={{ width: '100%', height: '100%', objectFit: pr.sizeMode === 'Stretch' ? 'fill' : pr.sizeMode === 'Clip' ? 'none' : 'contain' }} /> : <span className="muted small" style={{ margin: 'auto' }}>{bound ? '(no image)' : ''}</span>}</div>; }
+    case 'image': { const img = bound ? String(v ?? '') : String(pr.picture ?? ''); const canPick = bound && !locked; return <div className={cls + (canPick ? ' fv-pic' : '')} style={style} data-ctl={c.name} tabIndex={canPick ? tabIndex : undefined} title={canPick ? (img ? 'Double-click to replace the picture · right-click for more' : 'Double-click to insert a picture') : undefined}
+      onDoubleClick={canPick ? () => void pickImage().then((d) => { if (d) setValue(src, d); }) : img ? () => viewPicture(img, c.name) : undefined}
+      onContextMenu={bound && img ? (e) => { e.preventDefault(); showContextMenu(e, [{ label: 'View Picture', onClick: () => viewPicture(img, c.name) }, { label: 'Replace Picture…', disabled: !canPick, onClick: () => void pickImage().then((d) => { if (d) setValue(src, d); }) }, { label: 'Remove Picture', disabled: !canPick, onClick: () => setValue(src, null) }]); } : undefined}>{img.startsWith('data:image') || /^https?:/.test(img) ? <img src={img} alt={c.name} style={{ width: '100%', height: '100%', objectFit: pr.sizeMode === 'Stretch' ? 'fill' : pr.sizeMode === 'Clip' ? 'none' : 'contain' }} /> : <span className="muted small" style={{ margin: 'auto' }}>{bound ? '(no image)' : ''}</span>}</div>; }
     case 'button': return <div className={cls} style={{ ...style, padding: 0 }}><button className="fv-btn" {...common} disabled={!enabled} style={{ background: String(pr.backColor ?? '#f3f3f3'), border: style.border, font: 'inherit', color: 'inherit' }} onClick={() => void runAction(String(pr.onClick ?? 'None'), String(pr.onClickArgument ?? ''), nav)}>{String(pr.caption ?? '')}</button></div>;
     case 'toggle': { const on = !!v && v !== '0'; return <div className={cls} style={{ ...style, padding: 0 }}><button className="fv-btn" {...common} disabled={locked} aria-pressed={on} style={{ background: on ? '#c9dcf2' : '#f3f3f3', border: '1px solid #8a8a8a', boxShadow: on ? 'inset 0 1px 3px rgba(0,0,0,.25)' : undefined, font: 'inherit' }} onClick={() => bound && setValue(src, on ? 0 : 1)}>{String(pr.caption ?? '')}</button></div>; }
     case 'checkbox': return <div className={cls} style={{ ...style, justifyContent: 'center', border: 'none', background: 'transparent' }}><input type="checkbox" className="chk" {...common} style={{ width: 15, height: 15 }} checked={!!v && v !== '0'} disabled={locked} onChange={(e) => bound && setValue(src, e.target.checked ? 1 : 0)} aria-label={c.name} /></div>;
