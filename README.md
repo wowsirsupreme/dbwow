@@ -45,6 +45,13 @@ To refresh them: `npm run build:portable && node tests/e2e/screens.cjs docs/scre
 
 ## Getting started (developers)
 
+Source: https://github.com/wowsirsupreme/dbwow
+
+```bash
+git clone https://github.com/wowsirsupreme/dbwow.git
+cd dbwow
+```
+
 Requirements: Node.js 20 or newer.
 
 ```bash
