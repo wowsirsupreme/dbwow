@@ -149,11 +149,11 @@ export function TableCanvas(props: Props) {
 
   return (
     <div className={'canvas-area' + (dropHover ? ' drop-hover' : '')} ref={areaRef} onPointerDown={startPan} data-testid={props.testId}
-      onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-wowdb-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDropHover(true); } }}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-dbwow-object')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDropHover(true); } }}
       onDragLeave={() => setDropHover(false)}
       onDrop={(e) => {
         setDropHover(false);
-        const raw = e.dataTransfer.getData('application/x-wowdb-object'); if (!raw) return;
+        const raw = e.dataTransfer.getData('application/x-dbwow-object'); if (!raw) return;
         e.preventDefault();
         const o = JSON.parse(raw) as { type: string; name: string };
         const r = areaRef.current!.getBoundingClientRect();

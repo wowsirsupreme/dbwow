@@ -126,7 +126,7 @@ export function NavPane({ openObject, runObject, actions }: { openObject: (type:
                 const QI = q ? KIND_ICON[q.kind] ?? Network : Ico;
                 return (
                   <div key={o.name} className={'nav-item' + (sel === k ? ' is-sel' : '')} title={`${o.name}${q ? ` (${q.kind} query)` : ''} — modified ${new Date(o.modified).toLocaleString()}`}
-                    draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-wowdb-object', JSON.stringify({ type: g.type, name: o.name })); e.dataTransfer.setData('text/plain', o.name); e.dataTransfer.effectAllowed = 'copy'; }}
+                    draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-dbwow-object', JSON.stringify({ type: g.type, name: o.name })); e.dataTransfer.setData('text/plain', o.name); e.dataTransfer.effectAllowed = 'copy'; }}
                     onClick={() => setSel(k)} onDoubleClick={() => defaultOpen(g.type, o.name)} onContextMenu={(e) => menu(e, g.type, o.name)}
                     onKeyDown={(e) => { if (e.key === 'Enter') defaultOpen(g.type, o.name); if (e.key === 'Delete') void remove(g.type, o.name); if (e.key === 'F2') void rename(g.type, o.name); }} tabIndex={0} data-testid={`nav-${g.type}-${o.name}`}>
                     <QI size={14} color={g.type === 'table' ? '#1f5fae' : g.type === 'query' ? '#6a3d9a' : g.type === 'form' ? '#b5651d' : g.type === 'report' ? '#2e7d32' : '#555'} />{o.name}

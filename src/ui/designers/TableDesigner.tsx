@@ -193,7 +193,7 @@ export function TableDesigner(props: TableDesignerProps) {
 
   // drag-reorder: row selector drag; toolbox drag inserts template
   const onDropAt = (beforeId: string | null, data: DataTransfer) => {
-    const tmpl = data.getData('application/x-wowdb-field');
+    const tmpl = data.getData('application/x-dbwow-field');
     if (tmpl) {
       const t = JSON.parse(tmpl) as Partial<FieldDef>;
       const nf: FieldDef = { id: uid('f'), name: uniqueFieldName(def, t.name ?? (t.type === 'AutoNumber' ? 'ID' : t.type?.replace(/[^A-Za-z]/g, '') ?? 'Field')), type: 'Short Text', ...t, ...(t.primaryKey && def.fields.some((f) => f.primaryKey) ? { primaryKey: false } : {}) } as FieldDef;
@@ -224,7 +224,7 @@ export function TableDesigner(props: TableDesignerProps) {
           {QUICK.map((t) => <ToolItem key={t.label} t={t} onAdd={() => onDropAtTemplate(t.field)} />)}
         </div>
         <div className="td-top" style={{ flex: 1 }}
-          onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-wowdb-field') || dragId) { e.preventDefault(); } }}
+          onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-dbwow-field') || dragId) { e.preventDefault(); } }}
           onDrop={(e) => { e.preventDefault(); onDropAt(dropBefore, e.dataTransfer); setDropBefore(null); setDragId(null); }}>
           <table className="td-grid" data-testid="table-design-grid">
             <colgroup><col style={{ width: 24 }} /><col style={{ width: '30%' }} /><col style={{ width: '20%' }} /><col /></colgroup>
@@ -234,7 +234,7 @@ export function TableDesigner(props: TableDesignerProps) {
                 const isBlank = i === rows.length - 1;
                 return (
                   <tr key={f.id} className={(sel.has(f.id) || cur === f.id ? 'is-sel ' : '') + (dropBefore === f.id ? 'drop-before' : '')}
-                    onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-wowdb-field') || dragId) { e.preventDefault(); setDropBefore(isBlank ? null : f.id); } }}
+                    onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-dbwow-field') || dragId) { e.preventDefault(); setDropBefore(isBlank ? null : f.id); } }}
                     onContextMenu={(e) => { if (isBlank) return; setCur(f.id); if (!sel.has(f.id)) setSel(new Set([f.id])); showContextMenu(e, [
                       { label: 'Primary Key', onClick: togglePk, checked: !!f.primaryKey }, { separator: true },
                       { label: 'Insert Rows', onClick: insertRow }, { label: 'Delete Rows', onClick: () => void deleteRows() }, { label: 'Duplicate Field', onClick: duplicate }, { separator: true },
@@ -280,7 +280,7 @@ export function TableDesigner(props: TableDesignerProps) {
 
   function onDropAtTemplate(t: Partial<FieldDef>) {
     const dt = new DataTransfer();
-    dt.setData('application/x-wowdb-field', JSON.stringify(t));
+    dt.setData('application/x-dbwow-field', JSON.stringify(t));
     onDropAt(null, dt);
   }
 }
@@ -289,7 +289,7 @@ function ToolItem({ t, onAdd }: { t: { label: string; icon: LucideIcon; field: P
   const Ico = t.icon;
   return (
     <div className="tb-item" draggable title="Drag into the design grid, or double-click to add"
-      onDragStart={(e) => { e.dataTransfer.setData('application/x-wowdb-field', JSON.stringify(t.field)); e.dataTransfer.effectAllowed = 'copy'; }}
+      onDragStart={(e) => { e.dataTransfer.setData('application/x-dbwow-field', JSON.stringify(t.field)); e.dataTransfer.effectAllowed = 'copy'; }}
       onDoubleClick={onAdd}>
       <Ico size={15} />{t.label}
     </div>

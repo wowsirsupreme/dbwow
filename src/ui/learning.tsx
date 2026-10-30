@@ -12,8 +12,8 @@ import { PRACTICALS, SAMPLE_EXERCISES, type Practical } from '@/learning/content
 import { ALL_ACHIEVEMENTS, XP, XP_STEP, newlyEarned, rankFor, totalXp, type Achievement, type LearnState, type Tier } from '@/learning/achievements';
 import { useApp } from './store';
 
-const KEY = 'wowdb.learning';
-const KEY_ACTIVE = 'wowdb.activePractical';
+const KEY = 'dbwow.learning';
+const KEY_ACTIVE = 'dbwow.activePractical';
 const emptyState = (): LearnState => ({ quizzes: {}, steps: {}, achievements: {}, events: {} });
 function load(): LearnState {
   try { const s = localStorage.getItem(KEY); if (s) return { ...emptyState(), ...(JSON.parse(s) as LearnState) }; } catch { /* storage unavailable */ }

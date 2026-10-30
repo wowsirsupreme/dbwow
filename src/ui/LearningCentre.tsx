@@ -15,8 +15,8 @@ export function LearningCentre({ tab, project: p, openSample }: { tab: Tab; proj
   useEffect(() => { if (tab.payload?.section) setSel(String(tab.payload.section)); }, [tab.payload?.section]);
   useEffect(() => {
     const h = (e: Event) => { setSel(String((e as CustomEvent).detail)); document.querySelector('.lc-main')?.scrollTo(0, 0); };
-    document.addEventListener('wowdb-learn', h);
-    return () => document.removeEventListener('wowdb-learn', h);
+    document.addEventListener('dbwow-learn', h);
+    return () => document.removeEventListener('dbwow-learn', h);
   }, []);
   const progress = useLearning((s) => s.progress);
   const update = useLearning((s) => s.setProgress);
@@ -105,8 +105,8 @@ function TopicView({ id, progress, update }: { id: string; progress: Progress; u
         );
       })}
       <div className="flex gap-2 mt-4">
-        {idx > 0 && <button className="btn" onClick={() => document.dispatchEvent(new CustomEvent('wowdb-learn', { detail: `topic:${TOPICS[idx - 1].id}` }))}>← Previous</button>}
-        {idx < TOPICS.length - 1 && <button className="btn btn-primary" onClick={() => document.dispatchEvent(new CustomEvent('wowdb-learn', { detail: `topic:${TOPICS[idx + 1].id}` }))}>Next topic →</button>}
+        {idx > 0 && <button className="btn" onClick={() => document.dispatchEvent(new CustomEvent('dbwow-learn', { detail: `topic:${TOPICS[idx - 1].id}` }))}>← Previous</button>}
+        {idx < TOPICS.length - 1 && <button className="btn btn-primary" onClick={() => document.dispatchEvent(new CustomEvent('dbwow-learn', { detail: `topic:${TOPICS[idx + 1].id}` }))}>Next topic →</button>}
       </div>
     </div>
   );

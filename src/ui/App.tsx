@@ -131,7 +131,7 @@ export default function App() {
 
   useEffect(() => { setDownloadNotifier((m) => void messageBox(m, 'Save file', 'warn')); }, []);
   // test/inspection hook (used by the automated browser acceptance tests)
-  useEffect(() => { (window as unknown as { __WOWDB__: unknown }).__WOWDB__ = { store: useApp }; }, []);
+  useEffect(() => { (window as unknown as { __DBWOW__: unknown }).__DBWOW__ = { store: useApp }; }, []);
 
   // boot: reopen the last database
   useEffect(() => {
@@ -331,7 +331,7 @@ function TitleBar({ onSave }: { onSave: () => void }) {
   const can = (c: string) => { const f = (activeTabId ? cs.editors[activeTabId]?.[c] : undefined) ?? cs.global[c]; return !!f && f.enabled; };
   return (
     <div className="titlebar">
-      <div className="brand"><span className="brand-mark">W</span>DBWOW</div>
+      <div className="brand"><span className="brand-mark">DB</span>DBWOW</div>
       <div className="qat" aria-label="Quick Access Toolbar">
         <button title="Save (Ctrl+S)" disabled={!project} onClick={onSave}><Save size={15} /></button>
         <button title="Undo (Ctrl+Z)" disabled={!can('undo')} onClick={() => runCommand('undo', activeTabId)}><Undo2 size={15} /></button>

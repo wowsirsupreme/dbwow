@@ -191,10 +191,10 @@ export const SAMPLE_EXERCISES: Practical[] = [
 // ---------------- progress (per learner, per browser) ----------------
 export interface Progress { quizzes: Record<string, number>; steps: Record<string, boolean>; }
 export function loadProgress(): Progress {
-  try { const s = localStorage.getItem('wowdb.learning'); if (s) return JSON.parse(s) as Progress; } catch { /* ignore */ }
+  try { const s = localStorage.getItem('dbwow.learning'); if (s) return JSON.parse(s) as Progress; } catch { /* ignore */ }
   return { quizzes: {}, steps: {} };
 }
-export function saveProgress(p: Progress) { try { localStorage.setItem('wowdb.learning', JSON.stringify(p)); } catch { /* ignore */ } }
+export function saveProgress(p: Progress) { try { localStorage.setItem('dbwow.learning', JSON.stringify(p)); } catch { /* ignore */ } }
 
 /** Contextual tips shown in Learning Mode for each kind of editor. */
 export const CONTEXT_TIPS: Record<string, string> = {

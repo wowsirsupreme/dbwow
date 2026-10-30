@@ -1,5 +1,12 @@
 # DBWOW Development Log
 
+## 30 October 2026 — Release 0.3.1: DBWOW name everywhere
+
+* Logo mark changed from "W" to "DB".
+* Internal names renamed: browser storage keys (dbwow.*), the IndexedDB store (dbwow-store), drag-and-drop data types and the test hook (window.__DBWOW__).
+* One-time migration: on first start, settings and learning progress are copied from the old wowdb.* keys, and saved databases and backups from the old wowdb-store, which is then deleted. Covered by a new browser test that recreates an old install.
+* Results: 52 engine tests; 5/5 learning, 10/10 acceptance and 12/12 feature steps on both builds.
+
 ## 30 October 2026 — Release 0.3.0: renamed DBWOW; live practicals and achievements
 
 * The product is now DBWOW (formerly WOWDB). Database files use the .dbwow extension; older .wowdb files still open. Browser storage keys are unchanged, so existing databases and progress carry over.

@@ -14,7 +14,7 @@ async function step(name, fn) {
 (async () => {
   const { browser, page, errors } = await start({ url: process.env.DBWOW_URL });
   const vis = (sel) => page.locator('.doc-pane:not(.hidden) ' + sel);
-  const sql = (q) => page.evaluate((q) => window.__WOWDB__.store.getState().project.db.all(q), q);
+  const sql = (q) => page.evaluate((q) => window.__DBWOW__.store.getState().project.db.all(q), q);
   const scalar = async (q) => Object.values((await sql(q))[0] ?? {})[0];
   const shot = (n) => page.screenshot({ path: path.join(OUT, n + '.png') });
   const ribbon = async (tab, cmd) => { await page.click(`.rtab:text-is("${tab}")`); await page.click(`[data-cmd="${cmd}"]`); };
@@ -102,8 +102,8 @@ async function step(name, fn) {
     await vis('.lc-side .it:has-text("School: students from Accra")').click();
     await page.waitForTimeout(200);
     assert.equal(await vis('.step.done').count(), 0);
-    await page.evaluate(() => window.__WOWDB__.store.getState().project.saveQuery({ name: 'qryAccra', kind: 'select', sql: "SELECT FirstName, LastName, Town FROM Students WHERE Town = 'Accra'" }));
-    await page.evaluate(() => window.__WOWDB__.store.getState().bump());
+    await page.evaluate(() => window.__DBWOW__.store.getState().project.saveQuery({ name: 'qryAccra', kind: 'select', sql: "SELECT FirstName, LastName, Town FROM Students WHERE Town = 'Accra'" }));
+    await page.evaluate(() => window.__DBWOW__.store.getState().bump());
     await page.waitForTimeout(300);
     assert.equal(await vis('.step.done').count(), 1);
     await vis('.lc-side .it:has-text("Primary keys")').click();
@@ -137,7 +137,7 @@ async function step(name, fn) {
   });
 
   await step('Relationships: junction table for many-to-many', async () => {
-    await page.evaluate(() => { const p = window.__WOWDB__.store.getState().project; p.saveTableDesign({ name: 'Societies', fields: [{ id: 'k1', name: 'SocietyID', type: 'AutoNumber', primaryKey: true }, { id: 'k2', name: 'Name', type: 'Short Text' }] }); });
+    await page.evaluate(() => { const p = window.__DBWOW__.store.getState().project; p.saveTableDesign({ name: 'Societies', fields: [{ id: 'k1', name: 'SocietyID', type: 'AutoNumber', primaryKey: true }, { id: 'k2', name: 'Name', type: 'Short Text' }] }); });
     await ribbon('DATABASE TOOLS', 'tools.relationships');
     await page.click('[data-cmd="rel.junction"]');
     await page.locator('.dlg select').nth(0).selectOption('Students');
@@ -174,7 +174,7 @@ async function step(name, fn) {
   });
 
   await step('Ribbon: Format/Arrange/Themes tabs, Tell Me, query Union/Insert Rows/Table Names, Create New relationship, Hide Details', async () => {
-    const proj = (fn, arg) => page.evaluate(([fn, arg]) => { const p = window.__WOWDB__.store.getState().project; return JSON.parse(JSON.stringify(p[fn](arg) ?? null)); }, [fn, arg]);
+    const proj = (fn, arg) => page.evaluate(([fn, arg]) => { const p = window.__DBWOW__.store.getState().project; return JSON.parse(JSON.stringify(p[fn](arg) ?? null)); }, [fn, arg]);
     await closeAllTabs();
     // form: Format tab bold + font + colour, Theme from the Design tab, Size/Space from Arrange
     await page.click('[data-testid="nav-form-frmStudents"]', { button: 'right' });

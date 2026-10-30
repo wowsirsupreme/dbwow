@@ -16,7 +16,7 @@ async function step(name, fn) {
 
 (async () => {
   const { browser, context, page, errors } = await start({ url: process.env.DBWOW_URL });
-  const sql = (q) => page.evaluate((q) => window.__WOWDB__.store.getState().project.db.all(q), q);
+  const sql = (q) => page.evaluate((q) => window.__DBWOW__.store.getState().project.db.all(q), q);
   const scalar = async (q) => Object.values((await sql(q))[0] ?? {})[0];
   const vis = (sel) => page.locator('.doc-pane:not(.hidden) ' + sel);
   const shot = (n) => page.screenshot({ path: path.join(OUT, n + '.png') });
@@ -37,7 +37,7 @@ async function step(name, fn) {
       await page.click('[data-testid="new-blank"]');
       await prompt('SchoolDB');
       await page.waitForTimeout(400);
-      assert.equal(await page.evaluate(() => window.__WOWDB__.store.getState().project.name), 'SchoolDB');
+      assert.equal(await page.evaluate(() => window.__DBWOW__.store.getState().project.name), 'SchoolDB');
     });
 
     // ---------------- table designer ----------------
@@ -97,7 +97,7 @@ async function step(name, fn) {
     });
 
     await step('Second table via quick Create > Table', async () => {
-      await page.evaluate(() => { const s = window.__WOWDB__.store.getState(); const { project } = s; project.saveTableDesign({ name: 'Classes', fields: [{ id: 'c1', name: 'ClassID', type: 'AutoNumber', primaryKey: true }, { id: 'c2', name: 'ClassName', type: 'Short Text' }] }); project.insertRecord('Classes', { ClassName: 'JHS 1' }); project.insertRecord('Classes', { ClassName: 'JHS 2' }); });
+      await page.evaluate(() => { const s = window.__DBWOW__.store.getState(); const { project } = s; project.saveTableDesign({ name: 'Classes', fields: [{ id: 'c1', name: 'ClassID', type: 'AutoNumber', primaryKey: true }, { id: 'c2', name: 'ClassName', type: 'Short Text' }] }); project.insertRecord('Classes', { ClassName: 'JHS 1' }); project.insertRecord('Classes', { ClassName: 'JHS 2' }); });
       await page.waitForTimeout(200);
       assert.equal(await scalar('SELECT count(*) FROM Classes'), 2);
     });
@@ -119,7 +119,7 @@ async function step(name, fn) {
       const fk = await sql('PRAGMA foreign_key_list(Students)');
       assert.equal(fk.length, 1); assert.equal(fk[0].table, 'Classes');
       // the database engine now rejects orphans
-      const err = await page.evaluate(() => { try { window.__WOWDB__.store.getState().project.insertRecord('Students', { FirstName: 'X', ClassID: 99 }); return 'accepted'; } catch (e) { return e.message; } });
+      const err = await page.evaluate(() => { try { window.__DBWOW__.store.getState().project.insertRecord('Students', { FirstName: 'X', ClassID: 99 }); return 'accepted'; } catch (e) { return e.message; } });
       assert.match(err, /related record is required/);
       assert.equal(await page.locator('[data-testid="relationships-canvas"] text').filter({ hasText: '∞' }).count(), 1);
       await shot('a4-relationships');
@@ -189,7 +189,7 @@ async function step(name, fn) {
       await ps.locator('.prop-row:has(label:text-is("Caption")) input').fill('New student');
       // resize the text box with its east handle
       await vis('[data-ctl="TextBox1"]').click();
-      const before = await page.evaluate(() => window.__WOWDB__.store.getState());
+      const before = await page.evaluate(() => window.__DBWOW__.store.getState());
       void before;
       const tb = vis('[data-ctl="TextBox1"]');
       const box = await tb.boundingBox();
@@ -205,7 +205,7 @@ async function step(name, fn) {
       await page.keyboard.press('Control+s');
       await prompt('frmStudentEntry');
       await page.waitForTimeout(300);
-      const def = await page.evaluate(() => window.__WOWDB__.store.getState().project.getForm('frmStudentEntry'));
+      const def = await page.evaluate(() => window.__DBWOW__.store.getState().project.getForm('frmStudentEntry'));
       const c = Object.fromEntries(def.controls.map((x) => [x.name, x]));
       assert.equal(c.TextBox1.props.controlSource, 'FirstName');
       assert.ok(c.TextBox1.w >= 168 + 56, 'text box was resized');
@@ -252,7 +252,7 @@ async function step(name, fn) {
       await page.keyboard.press('Control+s');
       await prompt('rptFees');
       await page.waitForTimeout(300);
-      const def = await page.evaluate(() => window.__WOWDB__.store.getState().project.getReport('rptFees'));
+      const def = await page.evaluate(() => window.__DBWOW__.store.getState().project.getReport('rptFees'));
       assert.ok(def.sections.some((s) => s.kind === 'groupFooter'));
       assert.ok(def.controls.some((c) => c.props.controlSource === '=Sum([FeePaid])'));
       assert.ok(def.controls.some((c) => c.type === 'pagenumber'));
@@ -285,10 +285,10 @@ async function step(name, fn) {
     await step('Save, close and reopen: records, structures, positions, bindings and properties intact', async () => {
       await page.keyboard.press('Control+s');
       await page.waitForTimeout(800);
-      const before = await page.evaluate(() => { const p = window.__WOWDB__.store.getState().project; return { form: p.getForm('frmStudentEntry'), rel: p.getLayout('Relationships'), rows: p.db.all('SELECT * FROM Students') }; });
+      const before = await page.evaluate(() => { const p = window.__DBWOW__.store.getState().project; return { form: p.getForm('frmStudentEntry'), rel: p.getLayout('Relationships'), rows: p.db.all('SELECT * FROM Students') }; });
       await page.reload();
       await page.waitForTimeout(2000);
-      const after = await page.evaluate(() => { const p = window.__WOWDB__.store.getState().project; return p && { name: p.name, form: p.getForm('frmStudentEntry'), rel: p.getLayout('Relationships'), rows: p.db.all('SELECT * FROM Students'), fk: p.db.all('PRAGMA foreign_key_list(Students)').length, q: p.getQuery('qryJHS1') && true, r: p.getReport('rptFees') && true }; });
+      const after = await page.evaluate(() => { const p = window.__DBWOW__.store.getState().project; return p && { name: p.name, form: p.getForm('frmStudentEntry'), rel: p.getLayout('Relationships'), rows: p.db.all('SELECT * FROM Students'), fk: p.db.all('PRAGMA foreign_key_list(Students)').length, q: p.getQuery('qryJHS1') && true, r: p.getReport('rptFees') && true }; });
       assert.ok(after, 'database reopened automatically');
       assert.equal(after.name, 'SchoolDB');
       assert.deepEqual(after.rows, before.rows);

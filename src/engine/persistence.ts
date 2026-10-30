@@ -6,11 +6,47 @@
 export interface StoredProject { id: string; name: string; bytes: Uint8Array; modified: string; size: number; }
 export interface ProjectInfo { id: string; name: string; modified: string; size: number; }
 
-const DB_NAME = 'wowdb-store';
+const DB_NAME = 'dbwow-store';
+const LEGACY_DB_NAME = 'wowdb-store';   // the app's former name; migrated once
 const STORE = 'projects';
 const BACKUPS = 'backups';
 
+let migration: Promise<void> | null = null;
+/** Copy databases and backups saved under the former name into the new store, then delete the old store. */
+function migrateLegacy(db: IDBDatabase): Promise<void> {
+  return new Promise((resolve) => {
+    const req = indexedDB.open(LEGACY_DB_NAME);
+    let fresh = false;
+    req.onupgradeneeded = () => { fresh = true; req.transaction?.abort(); };
+    req.onerror = () => { if (fresh) indexedDB.deleteDatabase(LEGACY_DB_NAME); resolve(); };
+    req.onsuccess = () => {
+      const old = req.result;
+      const stores = [STORE, BACKUPS].filter((n) => old.objectStoreNames.contains(n));
+      if (!stores.length) { old.close(); indexedDB.deleteDatabase(LEGACY_DB_NAME); resolve(); return; }
+      const rt = old.transaction(stores, 'readonly');
+      const data: Record<string, unknown[]> = {};
+      for (const n of stores) { const g = rt.objectStore(n).getAll(); g.onsuccess = () => { data[n] = g.result; }; }
+      rt.oncomplete = () => {
+        old.close();
+        const wt = db.transaction([STORE, BACKUPS], 'readwrite');
+        for (const n of stores) for (const rec of data[n] ?? []) wt.objectStore(n).put(rec);
+        wt.oncomplete = () => { indexedDB.deleteDatabase(LEGACY_DB_NAME); resolve(); };
+        wt.onerror = () => resolve();   // keep the old store if copying failed
+        wt.onabort = () => resolve();
+      };
+      rt.onerror = () => { old.close(); resolve(); };
+    };
+  });
+}
+
 function open(): Promise<IDBDatabase> {
+  return openRaw().then((db) => {
+    if (!migration) migration = migrateLegacy(db);
+    return migration.then(() => db);
+  });
+}
+
+function openRaw(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') { reject(new Error('Browser storage is not available.')); return; }
     const req = indexedDB.open(DB_NAME, 2);
@@ -62,8 +98,8 @@ export async function loadBackup(id: string): Promise<Uint8Array | undefined> {
 export async function deleteBackup(id: string): Promise<void> { await tx(BACKUPS, 'readwrite', (s) => s.delete(id)); }
 
 /** Last opened project (per viewer convenience). */
-export function rememberLast(id: string | null) { try { if (id) localStorage.setItem('wowdb.last', id); else localStorage.removeItem('wowdb.last'); } catch { /* ignore */ } }
-export function lastOpened(): string | null { try { return localStorage.getItem('wowdb.last'); } catch { return null; } }
+export function rememberLast(id: string | null) { try { if (id) localStorage.setItem('dbwow.last', id); else localStorage.removeItem('dbwow.last'); } catch { /* ignore */ } }
+export function lastOpened(): string | null { try { return localStorage.getItem('dbwow.last'); } catch { return null; } }
 
 type HostDownloads = { save: (r: { filename: string; data: Blob }) => Promise<unknown> };
 type HostWindow = { claude?: { use: (n: string) => Promise<unknown> } };

@@ -424,8 +424,8 @@ export function DesignCanvas<T extends Def>(props: DesignCanvasProps<T>) {
     setDropSec(null);
     const r = sectionTop(s.id)!;
     const x = e.clientX - r.left, y = e.clientY - r.top;
-    const tt = e.dataTransfer.getData('application/x-wowdb-tool');
-    const ff = e.dataTransfer.getData('application/x-wowdb-dfield');
+    const tt = e.dataTransfer.getData('application/x-dbwow-tool');
+    const ff = e.dataTransfer.getData('application/x-dbwow-dfield');
     if (tt) { e.preventDefault(); void placeTool(tt as ControlType, s.id, x, y); }
     else if (ff) { e.preventDefault(); addFieldControls(ff, s.id, x, y); }
   };
@@ -438,7 +438,7 @@ export function DesignCanvas<T extends Def>(props: DesignCanvasProps<T>) {
         {(mode === 'form' ? FORM_TOOLBOX : REPORT_TOOLBOX).map((t) => {
           const Ico = TOOL_ICONS[t];
           return <div key={t} className={'tb-item' + (tool === t ? ' on' : '')} draggable data-tool={t} title="Drag onto the form, or click then draw on a section"
-            onDragStart={(e) => { e.dataTransfer.setData('application/x-wowdb-tool', t); e.dataTransfer.effectAllowed = 'copy'; }}
+            onDragStart={(e) => { e.dataTransfer.setData('application/x-dbwow-tool', t); e.dataTransfer.effectAllowed = 'copy'; }}
             onClick={() => setTool(tool === t ? null : t)}><Ico size={15} />{CONTROL_LABELS[t]}</div>;
         })}
         {report && <><div className="tb-title" style={{ marginTop: 6 }}>Grouping</div>
@@ -460,7 +460,7 @@ export function DesignCanvas<T extends Def>(props: DesignCanvasProps<T>) {
                 <div className="sec-wrap"><VRuler height={s.height} />
                 <div className={'sec-body' + (showGrid ? ' grid' : '') + (dropSec === s.id ? ' drop-hover' : '')} data-sec={s.id} style={{ height: s.height, width: def.width, backgroundColor: s.backColor ?? '#fff', backgroundImage: showGrid ? undefined : 'none', cursor: tool ? 'crosshair' : 'default' }}
                   onPointerDown={(e) => onSectionPointerDown(e, s)}
-                  onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-wowdb-tool') || e.dataTransfer.types.includes('application/x-wowdb-dfield')) { e.preventDefault(); setDropSec(s.id); } }}
+                  onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-dbwow-tool') || e.dataTransfer.types.includes('application/x-dbwow-dfield')) { e.preventDefault(); setDropSec(s.id); } }}
                   onDragLeave={() => setDropSec(null)} onDrop={(e) => onSectionDrop(e, s)}>
                   {def.controls.filter((c) => c.section === s.id).map((c) => (
                     <div key={c.id} className={'ctl' + (sel.includes(c.id) ? ' is-sel' : '')} data-ctl={c.name} style={{ left: c.x, top: c.y, width: c.w, height: c.h, ...ctlStyle(c) }}
@@ -488,7 +488,7 @@ export function DesignCanvas<T extends Def>(props: DesignCanvasProps<T>) {
           <div className="ps-sub">{def.recordSource ? <>Fields available in <b>{def.recordSource}</b>. Drag onto a section or double-click.</> : 'Set the Record Source in the Property Sheet first.'}</div>
           <div style={{ overflow: 'auto', flex: 1 }}>
             {fields.map((f) => (
-              <div key={f} className="fl-item" draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-wowdb-dfield', f); e.dataTransfer.effectAllowed = 'copy'; }}
+              <div key={f} className="fl-item" draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-dbwow-dfield', f); e.dataTransfer.effectAllowed = 'copy'; }}
                 onDoubleClick={() => { const d = def.sections.find((s) => s.kind === 'detail')!; const y = Math.max(8, ...def.controls.filter((c) => c.section === d.id).map((c) => c.y + c.h + 8)); addFieldControls(f, d.id, mode === 'report' ? Math.max(0, ...def.controls.filter((c) => c.section === d.id).map((c) => c.x + c.w + 8), 0) : 16, mode === 'report' ? 2 : y); }}>
                 {fieldDefs.find((x) => x.name === f)?.primaryKey ? <I.KeyRound size={12} color="#b8860b" /> : <I.Columns3 size={12} color="#888" />}{f}
               </div>
@@ -689,7 +689,7 @@ function TabOrderDialog({ items, close }: { items: ControlDef[]; close: (v: stri
 export { useCallback, useEffect };
 
 const THEMES: Record<string, { header: string; band: string; detail: string; title: string; label: string; accent: string; border: string; font: string }> = {
-  wowdb: { header: '#dbe6f4', band: '#eef3fa', detail: '#ffffff', title: '#1e3a6e', label: '#1f1f1f', accent: '#1f5fae', border: '#a6a6a6', font: 'Segoe UI' },
+  dbwow: { header: '#dbe6f4', band: '#eef3fa', detail: '#ffffff', title: '#1e3a6e', label: '#1f1f1f', accent: '#1f5fae', border: '#a6a6a6', font: 'Segoe UI' },
   slate: { header: '#d9dde3', band: '#eceef1', detail: '#ffffff', title: '#2e3a4a', label: '#2e3a4a', accent: '#4a5a70', border: '#9aa3ae', font: 'Calibri' },
   forest: { header: '#d8eadb', band: '#edf5ee', detail: '#ffffff', title: '#1f5130', label: '#1f2f24', accent: '#2e7d46', border: '#9fb7a5', font: 'Calibri' },
   sunset: { header: '#f7e0cc', band: '#fbefe5', detail: '#ffffff', title: '#8a3b12', label: '#3a2418', accent: '#c25a1c', border: '#c9ab96', font: 'Georgia' },

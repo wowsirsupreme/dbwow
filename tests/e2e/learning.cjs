@@ -17,7 +17,7 @@ async function step(name, fn) {
   const okDialog = async (label = 'OK') => { await page.click(`.dlg .dlg-buttons button:text-is("${label}")`); await page.waitForTimeout(150); };
   const prompt = async (value) => { const inp = page.locator('.dlg input').first(); await inp.fill(value); await okDialog('OK'); };
   const panelStep = (i) => page.locator(`[data-testid="practical-panel"] .pp-step[data-step="${i}"]`);
-  const progress = () => page.evaluate(() => JSON.parse(localStorage.getItem('wowdb.learning') || '{}'));
+  const progress = () => page.evaluate(() => JSON.parse(localStorage.getItem('dbwow.learning') || '{}'));
 
   await step('Practical panel stays beside the work and ticks steps live (pending until saved)', async () => {
     await page.click('[data-testid="new-blank"]');
@@ -86,6 +86,29 @@ async function step(name, fn) {
     await page.waitForSelector('[data-testid="practical-panel"]');
     assert.match(await panelStep(4).getAttribute('class'), /done/);
     assert.equal(await page.locator('.lt-toast').count(), 0, 'no toast burst on reload');
+  });
+
+  await step('Upgrade from the old WOWDB name keeps saved databases, progress and trophies', async () => {
+    const before = await progress();
+    const name = await page.evaluate(() => window.__DBWOW__.store.getState().project.name);
+    // turn this browser back into an old WOWDB install
+    await page.evaluate(async () => {
+      const read = () => new Promise((res, rej) => { const r = indexedDB.open('dbwow-store'); r.onsuccess = () => { const db = r.result; const t = db.transaction(['projects', 'backups'], 'readonly'); const out = {}; for (const n of ['projects', 'backups']) { const g = t.objectStore(n).getAll(); g.onsuccess = () => { out[n] = g.result; }; } t.oncomplete = () => { db.close(); res(out); }; }; r.onerror = () => rej(r.error); });
+      const data = await read();
+      await new Promise((res) => { const d = indexedDB.deleteDatabase('dbwow-store'); d.onsuccess = d.onerror = d.onblocked = () => res(); });
+      await new Promise((res, rej) => { const r = indexedDB.open('wowdb-store', 2); r.onupgradeneeded = () => { r.result.createObjectStore('projects', { keyPath: 'id' }); r.result.createObjectStore('backups', { keyPath: 'id' }); }; r.onsuccess = () => { const db = r.result; const t = db.transaction(['projects', 'backups'], 'readwrite'); for (const n of ['projects', 'backups']) for (const x of data[n]) t.objectStore(n).put(x); t.oncomplete = () => { db.close(); res(); }; }; r.onerror = () => rej(r.error); });
+      for (const k of ['learning', 'learningMode', 'last', 'activePractical']) { const v = localStorage.getItem('dbwow.' + k); if (v !== null) { localStorage.setItem('wowdb.' + k, v); localStorage.removeItem('dbwow.' + k); } }
+    });
+    await page.reload();
+    await page.waitForTimeout(2500);
+    assert.equal(await page.evaluate(() => window.__DBWOW__.store.getState().project?.name), name, 'last database reopened');
+    assert.ok(await page.evaluate(() => window.__DBWOW__.store.getState().project.getTable('Students')), 'tables kept');
+    const after = await progress();
+    assert.deepEqual(after.achievements, before.achievements, 'trophies kept');
+    assert.deepEqual(after.steps, before.steps, 'steps kept');
+    assert.equal(await page.evaluate(() => localStorage.getItem('wowdb.learning')), null, 'old key removed');
+    assert.equal(await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('wowdb-store'); r.onupgradeneeded = () => { r.transaction.abort(); res('gone'); }; r.onsuccess = () => { r.result.close(); res('still there'); }; r.onerror = () => res('gone'); })), 'gone', 'old store deleted');
+    assert.equal(await page.locator('.brand-mark').textContent(), 'DB');
   });
 
   const fails = results.filter((r) => r[0] === 'FAIL').length;

@@ -1,3 +1,4 @@
+import './legacy';
 // Application state (Zustand). Database DATA is never kept here: it lives in
 // SQLite and is persisted to IndexedDB. This store only tracks UI state:
 // open project handle, tabs, active ribbon tab, panels and a version counter
@@ -52,7 +53,7 @@ let unsub: (() => void) | null = null;
 
 export const useApp = create<AppState>((set, get) => ({
   project: null, projectId: null, version: 0, tabs: [], activeTabId: null, ribbonTab: 'home', backstage: false,
-  navCollapsed: typeof window !== 'undefined' && window.innerWidth < 700, learningMode: readPref('wowdb.learningMode', false), status: 'Ready', savedAt: null, saving: false, selection: {},
+  navCollapsed: typeof window !== 'undefined' && window.innerWidth < 700, learningMode: readPref('dbwow.learningMode', false), status: 'Ready', savedAt: null, saving: false, selection: {},
   setProject: (p, id) => {
     if (unsub) { unsub(); unsub = null; }
     if (p && id) {
@@ -94,7 +95,7 @@ export const useApp = create<AppState>((set, get) => ({
   setRibbonTab: (t) => set({ ribbonTab: t, backstage: t === 'file' }),
   setBackstage: (b) => set({ backstage: b }),
   toggleNav: () => set({ navCollapsed: !get().navCollapsed }),
-  setLearningMode: (b) => { writePref('wowdb.learningMode', b); set({ learningMode: b }); },
+  setLearningMode: (b) => { writePref('dbwow.learningMode', b); set({ learningMode: b }); },
   setStatus: (s) => set({ status: s }),
   setSelection: (s) => { const cur = get().selection; if (JSON.stringify(cur) !== JSON.stringify(s)) set({ selection: s }); },
 }));
