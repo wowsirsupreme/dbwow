@@ -1,0 +1,26 @@
+const { start } = require('./lib.cjs');
+const out = process.argv[2];
+(async () => {
+  const { browser, page, errors } = await start();
+  const shot = async (n) => { await page.waitForTimeout(500); await page.screenshot({ path: `${out}/${n}.png` }); };
+  await page.click('[data-testid="new-sample-school"]');
+  await page.waitForTimeout(2500);
+  await shot('1-relationships');
+  await page.dblclick('[data-testid="nav-table-Students"]');
+  await shot('2-datasheet');
+  await page.click('.doc-tab:has-text("Students") .x').catch(() => {});
+  await page.dblclick('[data-testid="nav-query-qryStudentsByClass"]');
+  await page.waitForTimeout(800);
+  await shot('3-query-results');
+  await page.click('[data-cmd="view.toggle"]', { timeout: 5000 });
+  await shot('4-query-design');
+  await page.dblclick('[data-testid="nav-form-frmClassesWithStudents"]');
+  await shot('5-form');
+  await page.dblclick('[data-testid="nav-report-rptFeesByClass"]');
+  await page.waitForTimeout(1000);
+  await shot('6-report');
+  await page.click('[data-cmd="view.toggle"]');
+  await shot('7-report-design');
+  console.log(JSON.stringify(errors, null, 1));
+  await browser.close();
+})();
