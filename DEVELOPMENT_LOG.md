@@ -1,5 +1,9 @@
 # DBWOW Development Log
 
+## 6 November 2026 — Release 0.7.1: fix "The cloud refused this request" when starting a test
+
+* Starting a test first checks whether the student already has an attempt (to resume it). The security rules only let a student read an attempt whose uid is theirs, and an attempt that does not exist yet has no uid, so Firestore refused the check and the test never started. The rules now allow that check (own(): resource == null or the student's own attempt), and the app also treats a refused check as "no attempt yet", so starting works even before the new rules are published.
+
 ## 6 November 2026 — Release 0.7.0: tests without accounts, start window, pledge, red and green test screen
 
 * Students no longer need to register to take a test. They open the student link (?take, or ?take=CODE), enter their full name (first name and surname are required), class and section (or whatever the teacher asks for), the test code, and tick a pledge not to cheat or commit any misconduct and to take responsibility for it. DBWOW signs them in as a guest (Firebase Anonymous Authentication), so the work, monitoring and marks work as before; a reload carries on in the same browser. Students with accounts can still take tests; their name is filled in.

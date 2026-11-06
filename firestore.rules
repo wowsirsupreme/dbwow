@@ -79,7 +79,8 @@ service cloud.firestore {
 
     match /attempts/{aid} {
       function test() { return get(/databases/$(database)/documents/tests/$(request.resource.data.testId)).data; }
-      function own() { return signedIn() && resource.data.uid == request.auth.uid; }
+      // resource is null when the student checks for an attempt they have not started yet
+      function own() { return signedIn() && (resource == null || resource.data.uid == request.auth.uid); }
       // the fields a student may change during their attempt
       function studentFields() {
         return request.resource.data.diff(resource.data).affectedKeys()

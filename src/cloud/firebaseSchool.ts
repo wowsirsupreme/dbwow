@@ -123,8 +123,10 @@ export function createFirebaseSchool(config: FirebaseConfig): SchoolBackend {
       const c = await me(); const { fs } = c.m;
       const id = `${t.id}_${c.uid}`;
       const ref = fs.doc(c.db, 'attempts', id);
-      const d = await fs.getDoc(ref);
-      if (d.exists()) return { attempt: data<Attempt>(d), resumed: true };
+      // Rules published before 0.7.1 refuse to read an attempt that does not exist yet; treat that as "no attempt".
+      let d: Awaited<ReturnType<typeof fs.getDoc>> | null = null;
+      try { d = await fs.getDoc(ref); } catch (e) { if ((e as { code?: string }).code !== 'permission-denied') throw e; }
+      if (d?.exists()) return { attempt: data<Attempt>(d), resumed: true };
       const now = Date.now();
       const a: Attempt = { id, testId: t.id, uid: c.uid, name: info?.name ?? c.user.name, email: c.user.email, classId: t.classId, status: 'in-progress', startedAt: new Date(now).toISOString(), deadline: new Date(now + t.durationMin * 60000).toISOString(), lastSeen: new Date(now).toISOString(), counters: zeroCounters(), details: info?.details ?? {}, ...(info ? { pledge: { text: info.pledge, at: new Date(now).toISOString() } } : {}) };
       const { id: _id, ...rest } = a; void _id;
