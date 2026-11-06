@@ -7,7 +7,7 @@ import { pdfBytes, studentResultPdf } from '@/exam/print';
 import { downloadBytes } from '@/engine/persistence';
 import { cloudMessage } from '@/cloud/backend';
 import { getBackend, useCloud } from '@/cloud/sync';
-import type { Attempt, ClassInfo, TestPublic } from '@/cloud/school';
+import { DEFAULT_DETAILS, type Attempt, type ClassInfo, type TestPublic } from '@/cloud/school';
 import { beginAttempt, closeExam, examActive, remainingMs, requestFullscreen, snapshot, submit, useExam } from '@/exam/session';
 import { loadProject } from '@/engine/persistence';
 import { WowProject } from '@/engine/project';
@@ -26,30 +26,52 @@ export async function startTestByCode(code: string): Promise<string | null> {
   try { t = await school.findTest(code); } catch (e) { return cloudMessage(e); }
   if (!t) return 'No open test has that code. Check the code, or ask your teacher whether the test is open.';
   const marks = t.tasks.reduce((s, x) => s + x.marks, 0);
-  const go = await openDialog<boolean>(t.title, (close) => (
-    <div style={{ maxWidth: 520 }} data-testid="test-intro">
-      <p className="mb-2"><b>{t!.durationMin} minutes</b> · {t!.tasks.length} tasks · {marks} marks{t!.ownerName ? ` · set by ${t!.ownerName}` : ''}</p>
-      {t!.instructions && <p className="mb-3" style={{ whiteSpace: 'pre-wrap' }}>{t!.instructions}</p>}
-      <div className="banner info mb-2" style={{ border: '1px solid #c5d9f1' }}>
-        <b>Before you start</b>
-        <ul className="small" style={{ margin: '4px 0 0 18px', listStyle: 'disc' }}>
-          <li>The timer starts now and keeps running if you close the page. You can come back to it.</li>
-          <li>Your work is saved to your teacher automatically. Submit when you finish; it is handed in automatically when time runs out.</li>
-          <li>Your teacher can see if you switch to another tab or app{t!.settings.requireFullscreen ? ', leave full screen' : ''}, or paste text.</li>
-          {!t!.settings.allowLearning && <li>The Learning Centre and hints are closed during the test.</li>}
-        </ul>
-      </div>
-      <div className="dlg-buttons"><button className="btn btn-primary" onClick={() => close(true)} data-testid="start-test">Start the test</button><button className="btn" onClick={() => close(null)}>Not now</button></div>
-    </div>
-  ), 560);
+  const go = await openDialog<Record<string, string>>(t.title, (close) => <TestIntro t={t!} marks={marks} close={close} />, 560);
   if (!go) return null;
   try {
-    const { attempt, resumed } = await school.startAttempt(t);
+    const { attempt, resumed } = await school.startAttempt(t, go);
     if (attempt.status === 'submitted') return 'You have already handed in this test.';
     if (t.settings.requireFullscreen) requestFullscreen();
     await beginAttempt(t, attempt, resumed);
     return null;
   } catch (e) { return cloudMessage(e); }
+}
+
+const DETAILS_KEY = 'dbwow.details';
+function TestIntro({ t, marks, close }: { t: TestPublic; marks: number; close: (v: Record<string, string> | null) => void }) {
+  const user = useCloud((s) => s.user);
+  const fields = t.paper?.details ?? DEFAULT_DETAILS;
+  const [vals, setVals] = useState<Record<string, string>>(() => { try { const old = JSON.parse(localStorage.getItem(DETAILS_KEY) ?? '{}') as Record<string, string>; return Object.fromEntries(fields.map((f) => [f, old[f] ?? ''])); } catch { return Object.fromEntries(fields.map((f) => [f, ''])); } });
+  const [err, setErr] = useState<string | null>(null);
+  const start = () => {
+    const miss = fields.filter((f) => !vals[f]?.trim());
+    if (miss.length) { setErr(`Fill in ${miss.join(', ')}.`); return; }
+    const clean = Object.fromEntries(fields.map((f) => [f, vals[f].trim()]));
+    try { localStorage.setItem(DETAILS_KEY, JSON.stringify(clean)); } catch { /* ignore */ }
+    close(clean);
+  };
+  return (
+    <div style={{ maxWidth: 520 }} data-testid="test-intro">
+      {(t.paper?.school || t.paper?.logo) && <div className="flex gap-2 mb-2" style={{ alignItems: 'center' }}>{t.paper.logo && <img src={t.paper.logo} alt="" style={{ height: 40 }} />}<b>{t.paper.school}</b></div>}
+      <p className="mb-2"><b>{t.durationMin} minutes</b> · {t.tasks.length} tasks · {marks} marks{t.ownerName ? ` · set by ${t.ownerName}` : ''}</p>
+      {t.instructions && <p className="mb-3" style={{ whiteSpace: 'pre-wrap' }}>{t.instructions}</p>}
+      <div className="tz-form mb-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <label>Name<input value={user?.name ?? ''} disabled aria-label="Name" /></label>
+        {fields.map((f) => <label key={f}>{f}<input value={vals[f] ?? ''} onChange={(e) => setVals({ ...vals, [f]: e.target.value })} aria-label={f} data-testid="detail-input" /></label>)}
+      </div>
+      <div className="banner info mb-2" style={{ border: '1px solid #c5d9f1' }}>
+        <b>Before you start</b>
+        <ul className="small" style={{ margin: '4px 0 0 18px', listStyle: 'disc' }}>
+          <li>The timer starts now and keeps running if you close the page. You can come back to it.</li>
+          <li>Your work is saved to your teacher automatically. Submit when you finish; it is handed in automatically when time runs out.</li>
+          <li>Your teacher can see if you switch to another tab or app{t.settings.requireFullscreen ? ', leave full screen' : ''}, or paste text.</li>
+          {!t.settings.allowLearning && <li>The Learning Centre and hints are closed during the test.</li>}
+        </ul>
+      </div>
+      {err && <div className="banner warn mb-2" role="alert">{err}</div>}
+      <div className="dlg-buttons"><button className="btn btn-primary" onClick={start} data-testid="start-test">Start the test</button><button className="btn" onClick={() => close(null)}>Not now</button></div>
+    </div>
+  );
 }
 
 /** The test panel shown during (and just after) a test. */
@@ -131,10 +153,10 @@ export function TestsPage({ goAccount, openTeacher }: { goAccount: () => void; o
     const res = a.taskResults ?? [];
     const raw = res.reduce((s, r) => s + r.marks, 0);
     const doc = studentResultPdf(a.testTitle ?? t?.title ?? 'Practical test', {
-      name: a.name, email: a.email, status: 'handed in', submittedAt: a.submittedAt, autoSubmitted: a.autoSubmitted,
+      name: a.name, email: a.email, details: a.details, status: 'handed in', submittedAt: a.submittedAt, autoSubmitted: a.autoSubmitted,
       score: raw, max: a.max ?? res.reduce((s, r) => s + r.max, 0), adjust: a.teacherAdjust, comment: a.comment,
       tasks: res.map((r, i) => ({ text: t?.tasks.find((x) => x.id === r.id)?.text ?? `Task ${i + 1}`, marks: r.marks, max: r.max, ok: r.ok, reason: r.reason })),
-    });
+    }, t?.paper);
     downloadBytes(pdfBytes(doc), `${a.testTitle ?? 'Test'} result.pdf`, 'application/pdf');
   };
   const refresh = () => { if (!school || !user) return; void school.isTeacher().then(setTeacher).catch(() => undefined); void school.myClasses().then(setClasses).catch(() => undefined); void school.myAttempts().then(setAttempts).catch(() => setAttempts([])); };

@@ -87,14 +87,14 @@ export function createTestBackend(url: string): CloudBackend {
     async setTestStatus(id, status) { await needTeacher(); const t = (await db.get<TestPublic>(`test/${id}`))!; await db.set(`test/${id}`, { ...t, status }); },
     async deleteTest(id) { await needTeacher(); await db.del(`test/${id}`); await db.del(`key/${id}`); await db.del(`teststart/${id}`); },
 
-    async startAttempt(t) {
+    async startAttempt(t, details) {
       const u = await need(); const id = `${t.id}_${u.uid}`;
       const old = await db.get<Attempt>(`attempt/${id}`);
       if (old) return { attempt: old, resumed: true };
       const fresh = await db.get<TestPublic>(`test/${t.id}`);
       if (fresh?.status !== 'open') throw err('permission-denied', 'This test is not open.');
       const now = Date.now();
-      const a: Attempt = { id, testId: t.id, uid: u.uid, name: u.name, email: u.email, classId: t.classId, status: 'in-progress', startedAt: new Date(now).toISOString(), deadline: new Date(now + t.durationMin * 60000).toISOString(), lastSeen: new Date(now).toISOString(), counters: zeroCounters() };
+      const a: Attempt = { id, testId: t.id, uid: u.uid, name: u.name, email: u.email, classId: t.classId, status: 'in-progress', startedAt: new Date(now).toISOString(), deadline: new Date(now + t.durationMin * 60000).toISOString(), lastSeen: new Date(now).toISOString(), counters: zeroCounters(), details: details ?? {} };
       await db.set(`attempt/${id}`, a); return { attempt: a, resumed: false };
     },
     async getAttempt(id) { await need(); return db.get<Attempt>(`attempt/${id}`); },

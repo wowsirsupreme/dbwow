@@ -10,7 +10,7 @@
 //   * solve(): a model answer, used by the unit tests and by "Build a model
 //     answer" in the test builder so a teacher can try the key.
 import { WowProject, uid } from '@/engine/project';
-import { autoForm, autoReport } from '@/engine/objects';
+import { autoForm, autoReport, newControl, syncGroupSections } from '@/engine/objects';
 import { buildSample, SAMPLE_LIST, type SampleId } from '@/engine/samples';
 import type { DataType } from '@/engine/types';
 import type { Check, ExamTask } from './checks';
@@ -344,14 +344,29 @@ export function taskLibrary(sample: SampleId, p: WowProject, seed = 1): LibTask[
   const R = P.report;
   add('report', 'Forms and reports', 3, `Create a report based on ${R.source} that is grouped by ${R.group}, shows ${R.show.join(', ')}, and has a total of ${R.total} for each group.`, { kind: 'report', source: R.source, groupField: R.group, total: true },
     (x) => x.saveReport(autoReport(x, R.source, `rpt${R.source}By${R.group}`, { groupBy: R.group, fields: R.show, totals: [R.total] })));
+  const T2 = P.text; const rTitle = `${T2.table} list`;
+  add('report.basic', 'Forms and reports', 3, `Create a report called rpt${T2.table}List based on ${T2.table} that shows ${T2.show.join(', ')}, sorted by ${T2.sort} (A to Z), with the title "${rTitle}" in the report header.`,
+    { kind: 'report', name: `rpt${T2.table}List`, source: T2.table, fields: T2.show, sortField: T2.sort, title: rTitle },
+    (x) => { const r = autoReport(x, T2.table, `rpt${T2.table}List`, { fields: T2.show, sortBy: T2.sort }); const tl = r.controls.find((k) => k.name === 'Title'); if (tl) tl.props.caption = rTitle; x.saveReport(r); });
+  const J = P.joins[0]; const jCol = (/order\s+by\s+(?:\w+\.)?(\w+)/i.exec(J.sql) ?? [])[1] ?? '';
+  add('report.query', 'Forms and reports', 3, `Create a report called rptGrouped based on your query qryJoin1, grouped by ${jCol}, with a count of the records in each group in the group footer.`,
+    { kind: 'report', name: 'rptGrouped', source: 'qryJoin1', groupField: jCol, count: true },
+    (x) => {
+      if (!x.getQuery('qryJoin1')) save(x, 'qryJoin1', J.sql);
+      let r = autoReport(x, 'qryJoin1', 'rptGrouped', { groupBy: jCol });
+      r.groups[0].footer = true; r = syncGroupSections(r);
+      const gf = r.sections.find((k) => k.kind === 'groupFooter')!;
+      const c = newControl('textbox', gf.id, 0, 4, r.controls); c.props.controlSource = '=Count(*)'; c.name = 'GroupCount'; r.controls.push(c);
+      x.saveReport(r);
+    });
   return out;
 }
 
 // ---------------------------------------------------------------- ready tests
 export const LEVELS = [
-  { id: 'core', name: 'Core', minutes: 40, about: 'Tables, a relationship, validation, simple queries and a form.', keys: ['table.pk', 'table.type', 'table.rel', 'table.records', 'validation', 'query.text', 'query.number', 'form'] },
-  { id: 'extended', name: 'Extended', minutes: 60, about: 'Wildcards, dates, parameters, joins, totals, a calculated field, an update query and a grouped report.', keys: ['query.like', 'query.date', 'query.parameter', 'query.join1', 'query.totals1', 'query.calc', 'query.update', 'report'] },
-  { id: 'full', name: 'Full paper', minutes: 90, about: 'Every task type for this database.', keys: ['table.pk', 'table.type', 'table.rel', 'table.records', 'validation', 'query.text', 'query.number', 'query.like', 'query.date', 'query.parameter', 'query.join1', 'query.join2', 'query.totals1', 'query.totals2', 'query.calc', 'query.update', 'form', 'report'] },
+  { id: 'core', name: 'Core', minutes: 40, about: 'Tables, a relationship, validation, simple queries, a form and a sorted report with a title.', keys: ['table.pk', 'table.type', 'table.rel', 'table.records', 'validation', 'query.text', 'query.number', 'form', 'report.basic'] },
+  { id: 'extended', name: 'Extended', minutes: 60, about: 'Wildcards, dates, parameters, joins, totals, a calculated field, an update query, a grouped report with totals and a report on a query with counts.', keys: ['query.like', 'query.date', 'query.parameter', 'query.join1', 'query.totals1', 'query.calc', 'query.update', 'report', 'report.query'] },
+  { id: 'full', name: 'Full paper', minutes: 90, about: 'Every task type for this database.', keys: ['table.pk', 'table.type', 'table.rel', 'table.records', 'validation', 'query.text', 'query.number', 'query.like', 'query.date', 'query.parameter', 'query.join1', 'query.join2', 'query.totals1', 'query.totals2', 'query.calc', 'query.update', 'form', 'report', 'report.basic', 'report.query'] },
 ] as const;
 export type LevelId = (typeof LEVELS)[number]['id'];
 

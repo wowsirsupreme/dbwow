@@ -103,9 +103,10 @@ async function step(name, fn) {
     await page.click('[data-testid="find-test"]');
     await page.waitForSelector('[data-testid="test-intro"]');
     await page.screenshot({ path: path.join(OUT, 'x2-test-intro.png') });
-    await page.click('[data-testid="start-test"]');
+    await page.fill('input[aria-label="Class"]', 'Form 3'); await page.fill('input[aria-label="Section"]', 'B'); await page.click('[data-testid="start-test"]');
     await page.waitForSelector('[data-testid="exam-panel"]');
-    if (await page.locator('[data-testid="fullscreen-cover"]').count()) await page.click('[data-testid="return-fullscreen"]');
+    await page.waitForTimeout(600);   // the full-screen request settles (headless browsers may refuse it)
+    if (await page.locator('[data-testid="fullscreen-cover"]').count()) { await page.click('[data-testid="return-fullscreen"]'); await page.waitForTimeout(400); }
     assert.match(await page.locator('[data-testid="exam-timer"]').textContent(), /^\s*(29|30):\d\d/);
     assert.equal(await page.locator('.xp-task').count(), 4);
     // learning centre closed
@@ -142,6 +143,7 @@ async function step(name, fn) {
     const a = attempts()[0];
     assert.ok(a.counters.pastes >= 1 && a.counters.pastedChars >= 300, 'paste recorded');
     assert.ok(a.counters.actions >= 1, 'changes counted');
+    assert.deepEqual(a.details, { Class: 'Form 3', Section: 'B' }, 'class and section recorded');
   });
 
   await step('Student hands in; the teacher marks, adjusts, releases; the student sees the result', async () => {
@@ -190,7 +192,7 @@ async function step(name, fn) {
     await page.click('[data-testid="bs-tests"]');
     await page.fill('input[aria-label="Test code"]', testCode);
     await page.click('[data-testid="find-test"]');
-    await page.click('[data-testid="start-test"]');
+    await page.fill('input[aria-label="Class"]', 'Form 3'); await page.fill('input[aria-label="Section"]', 'B'); await page.click('[data-testid="start-test"]');
     await page.waitForSelector('[data-testid="exam-panel"]');
     const before = attempts().find((a) => a.email === 'kojo@school.test');
     await page.reload(); await page.waitForTimeout(2500);
@@ -224,20 +226,24 @@ async function step(name, fn) {
     await tp.locator('.dlg label.chk').filter({ hasText: 'Extended' }).locator('input').check();
     await tp.screenshot({ path: path.join(OUT, 'x7-ready-made.png') });
     await tp.click('[data-testid="ready-use"]');
-    await tp.waitForFunction(() => document.querySelectorAll('[data-testid="task-edit"]').length === 8);
+    await tp.waitForFunction(() => document.querySelectorAll('[data-testid="task-edit"]').length === 9);
     assert.match(await tp.inputValue('input[aria-label="Test title"]'), /Farm Co-operative: Extended/);
     await tp.click('[data-testid="build-model"]');
     await tp.waitForSelector('[data-testid="key-preview"]');
-    assert.match(await tp.locator('[data-testid="key-preview"]').textContent(), /^20 \/ 20 on the model answer/);
+    assert.match(await tp.locator('[data-testid="key-preview"]').textContent(), /^23 \/ 23 on the model answer/);
     await tp.click('[data-testid="task-bank"]');
     await tp.waitForSelector('[data-testid="bank-task"]');
     assert.equal(await tp.inputValue('select[aria-label="Bank database"]'), 'farm');
     await tp.locator('[data-testid="bank-task"]').nth(0).check();
     await tp.locator('[data-testid="bank-task"]').nth(4).check();
     await tp.click('[data-testid="bank-add"]');
-    await tp.waitForFunction(() => document.querySelectorAll('[data-testid="task-edit"]').length === 10);
+    await tp.waitForFunction(() => document.querySelectorAll('[data-testid="task-edit"]').length === 11);
+    await tp.fill('input[aria-label="School name"]', 'Wilpanet Academy');
+    await tp.fill('input[aria-label="Total marks"]', '30');
+    await tp.click('[data-testid="spread-marks"]');
+    await tp.locator('.tz-paper').screenshot({ path: path.join(OUT, 'x8-paper-settings.png') });
     await tp.click('[data-testid="build-model"]');
-    await tp.waitForFunction(() => /^24 \/ 24/.test(document.querySelector('[data-testid="key-preview"]')?.textContent ?? ''));
+    await tp.waitForFunction(() => /^30 \/ 30/.test(document.querySelector('[data-testid="key-preview"]')?.textContent ?? ''));
     await tp.click('[data-testid="save-test"]');
     await tp.waitForFunction(() => document.querySelectorAll('[data-testid="test-row"]').length === 2);
     const t = Object.values(cloud.dump('test/')).find((x) => /Farm/.test(x.title));
@@ -253,7 +259,9 @@ async function step(name, fn) {
     const [ms] = await Promise.all([tp.waitForEvent('download'), tp.click('[data-testid="paper-go"]')]);
     assert.match(ms.suggestedFilename(), /mark scheme\.pdf$/);
     assert.equal(t.start.kind, 'file'); assert.ok(t.start.size > 10000, 'starting database saved with the test');
-    assert.equal(t.tasks.length, 10);
+    assert.equal(t.tasks.length, 11);
+    assert.equal(t.paper.school, 'Wilpanet Academy'); assert.equal(t.paper.totalMarks, 30); assert.deepEqual(t.paper.details, ['Class', 'Section']);
+    assert.equal(t.tasks.reduce((a, x) => a + x.marks, 0), 30);
   });
 
   const fails = results.filter((r) => r[0] === 'FAIL').length;

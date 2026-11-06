@@ -21,7 +21,7 @@ export type Check =
   | { kind: 'queryUses'; query?: string; contains: string }
   | { kind: 'parameter'; sql: string; value: string; query?: string }
   | { kind: 'form'; source?: string; fields?: string[]; name?: string }
-  | { kind: 'report'; source?: string; groupField?: string; total?: boolean; name?: string }
+  | { kind: 'report'; source?: string; groupField?: string; total?: boolean; name?: string; fields?: string[]; sortField?: string; title?: string; count?: boolean }
   | { kind: 'sql'; sql: string; label: string };
 
 export interface ExamTask { id: string; text: string; marks: number; check: Check; }
@@ -199,13 +199,29 @@ export function runCheck(p: WowProject, c: Check): { ok: boolean; reason: string
     case 'report': {
       const all = p.listObjects('report').map((o) => p.getReport(o.name)).filter((x): x is ReportDef => !!x).filter((r) => (!c.name || eq(r.name, c.name)) && (!c.source || eq(r.recordSource, c.source)));
       if (!all.length) return fail(`No report${c.name ? ` called ${c.name}` : ''}${c.source ? ` based on ${c.source}` : ''}.`);
+      const need = (c.fields ?? []).map((x) => x.toLowerCase());
+      let closest = '';
       for (const r of all) {
-        const grouped = !c.groupField || r.groups.some((g) => !g.isSort && eq(g.field, c.groupField!));
-        const foot = r.sections.filter((s) => s.kind === 'groupFooter' || s.kind === 'reportFooter').map((s) => s.id);
-        const total = !c.total || r.controls.some((k) => foot.includes(k.section) && /=\s*(sum|count|avg|min|max)\s*\(/i.test(String(k.props.controlSource ?? '')));
-        if (grouped && total) return pass(`${r.name}${c.groupField ? ` is grouped on ${c.groupField}` : ''}${c.total ? ' with a total' : ''}.`);
+        const sec = (kinds: string[]) => r.sections.filter((x) => kinds.includes(x.kind)).map((x) => x.id);
+        const foot = sec(['groupFooter', 'reportFooter']);
+        const missing: string[] = [];
+        if (c.groupField && !r.groups.some((g) => !g.isSort && eq(g.field, c.groupField!))) missing.push(`it is not grouped on ${c.groupField}`);
+        if (c.sortField && !r.groups.some((g) => eq(g.field, c.sortField!))) missing.push(`it is not sorted on ${c.sortField} (use Group & Sort)`);
+        if (c.total && !r.controls.some((k) => foot.includes(k.section) && /=\s*(sum|avg|min|max)\s*\(/i.test(String(k.props.controlSource ?? '')))) missing.push('it has no total (Sum) in a group or report footer');
+        if (c.count && !r.controls.some((k) => foot.includes(k.section) && /=\s*count\s*\(/i.test(String(k.props.controlSource ?? '')))) missing.push('it has no Count in a group or report footer');
+        if (need.length) {
+          const bound = new Set(r.controls.map((k) => String(k.props.controlSource ?? '').toLowerCase()));
+          const gone = need.filter((x) => !bound.has(x));
+          if (gone.length) missing.push(`it does not show ${gone.join(', ')}`);
+        }
+        if (c.title) {
+          const head = sec(['reportHeader', 'pageHeader']);
+          if (!r.controls.some((k) => head.includes(k.section) && String(k.props.caption ?? '').toLowerCase().includes(c.title!.toLowerCase()))) missing.push(`its header has no title "${c.title}"`);
+        }
+        if (!missing.length) return pass(`${r.name} is based on ${r.recordSource}${c.groupField ? `, grouped on ${c.groupField}` : ''}${c.sortField ? `, sorted on ${c.sortField}` : ''}${c.total ? ', with a total' : ''}${c.count ? ', with a count' : ''}.`);
+        closest ||= `${r.name}: ${missing.join('; ')}.`;
       }
-      return fail(c.groupField && c.total ? `No report grouped on ${c.groupField} with a total in a footer.` : c.groupField ? `No report grouped on ${c.groupField}.` : 'No report with a total in a group or report footer.');
+      return fail(closest);
     }
     case 'sql': {
       const r = rowsOf(p, c.sql);
@@ -239,7 +255,7 @@ export function describeCheck(c: Check): string {
     case 'queryUses': return `A saved query${c.query ? ` named ${c.query}` : ''} uses ${c.contains}`;
     case 'parameter': return `A parameter query${c.query ? ` named ${c.query}` : ''}, given "${c.value}", returns the same rows as the answer SQL`;
     case 'form': return `A form${c.name ? ` named ${c.name}` : ''}${c.source ? ` based on ${c.source}` : ''}${c.fields?.length ? ` showing ${c.fields.join(', ')}` : ''}`;
-    case 'report': return `A report${c.name ? ` named ${c.name}` : ''}${c.source ? ` based on ${c.source}` : ''}${c.groupField ? ` grouped on ${c.groupField}` : ''}${c.total ? ' with a total' : ''}`;
+    case 'report': return `A report${c.name ? ` named ${c.name}` : ''}${c.source ? ` based on ${c.source}` : ''}${c.fields?.length ? ` showing ${c.fields.join(', ')}` : ''}${c.groupField ? ` grouped on ${c.groupField}` : ''}${c.sortField ? ` sorted on ${c.sortField}` : ''}${c.title ? ` titled "${c.title}"` : ''}${c.total ? ' with a total' : ''}${c.count ? ' with a count' : ''}`;
     case 'sql': return `Custom check: ${c.label}`;
   }
 }

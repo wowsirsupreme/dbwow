@@ -1,5 +1,12 @@
 # DBWOW Development Log
 
+## 6 November 2026 — Release 0.6.2: school name and logo, paper total, student details, more report tasks
+
+* School and paper settings in the test editor: school name and logo (any PNG or JPEG, reduced to a small PNG) printed at the top of question papers, mark schemes, mark sheets and marked papers; the paper's total marks, with "Spread the marks" to scale task marks to that total (whole marks, at least 1 each; a test cannot be saved while they disagree); and the details students fill in before starting (default Class and Section; any list, e.g. Index number). The school name, logo and detail list are remembered for the next test.
+* Students fill in those details in the start dialog (their name comes from their account). They are stored with the attempt and shown in the live monitor, results, CSV, the mark sheet (a Class / Section column) and every marked paper. Question papers print a line for each.
+* Reports: the report check can now also require the fields shown, the sort order and a title in the header, and a Count. New tasks for every sample: a sorted report with a title (now in Core) and a report based on the student's own join query, grouped, with a count in the group footer (Extended and Full paper). Core 9 tasks, Extended 9, Full paper 20.
+* Tests: 92 unit tests; exams.cjs fills in class and section, sets the school name and a total of 30 and spreads the marks.
+
 ## 6 November 2026 — Release 0.6.1: question papers, mark schemes, marked papers
 
 * Question paper for every test (Tests > Paper, or Results > Question paper), as PDF or an editable Word file (.docx, Times New Roman): title, class, time allowed, total marks, name/class/date lines, instructions to candidates (how to sign in, start, save, submit; what is recorded), the teacher's instructions, the database provided (each table with its fields, data types, keys and number of records; optional), and every task numbered with its marks in brackets. Print it before the test or hand it out on the day.

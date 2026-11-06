@@ -96,7 +96,7 @@ describe('printed papers', () => {
     const tables = t.start.tables().map((x) => ({ name: x.name, records: 1, fields: x.fields.map((f) => ({ name: f.name, type: f.type, key: !!f.primaryKey })) }));
     const info = { test, className: 'Form 3A', startLabel: 'You start with the Restaurant database.', tables };
     const paper = questionPaper(info);
-    expect(paper.filter((b) => b.t === 'task')).toHaveLength(18);
+    expect(paper.filter((b) => b.t === 'task')).toHaveLength(20);
     const pdf = blocksToPdf(paper, test.title); const raw = pdf.output();
     expect(raw).toContain('Time allowed: 90 minutes'); expect(raw).not.toContain('SELECT');
     const scheme = markScheme(info, { tasks: t.tasks.map(({ id, check }) => ({ id, check })) });
@@ -106,5 +106,32 @@ describe('printed papers', () => {
     const { writeFileSync } = await import('node:fs');
     writeFileSync('/tmp/claude-0/paper.pdf', new Uint8Array(pdf.output('arraybuffer'))); writeFileSync('/tmp/claude-0/paper.docx', docx);
     writeFileSync('/tmp/claude-0/scheme.pdf', new Uint8Array(blocksToPdf(scheme, 'x').output('arraybuffer')));
+  });
+});
+
+describe('paper settings', () => {
+  it('spreads task marks to a chosen total, keeping whole marks and at least 1 each', async () => {
+    const { spreadMarks } = await import('@/exam/paper');
+    for (const [marks, total] of [[[2, 1, 2, 1, 2, 2, 2, 2], 50], [[3, 3, 2], 5], [[1, 1, 1, 1], 4], [[2, 2, 3, 3], 100]] as [number[], number][]) {
+      const out = spreadMarks(marks, total);
+      expect(out.reduce((a, b) => a + b, 0)).toBe(total);
+      expect(out.every((m) => Number.isInteger(m) && m >= 1)).toBe(true);
+    }
+  });
+  it('prints the school, logo and the details students fill in', async () => {
+    const { questionPaper, blocksToPdf, blocksToDocx } = await import('@/exam/paper');
+    const { resultsPdf } = await import('@/exam/print');
+    // a 2x2 PNG
+    const logo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNgYGD4z8DAwMDAxMDAAAAP4AEBz4Q2rAAAAABJRU5ErkJggg==';
+    const t = await readyTest('school', 'core', 2);
+    const test = { id: 't', title: t.title, instructions: '', classId: null, durationMin: 40, status: 'draft' as const, code: 'A', tasks: t.tasks.map(({ id, text, marks }) => ({ id, text, marks })), start: { kind: 'blank' as const }, settings: { requireFullscreen: true, allowLearning: false }, ownerUid: 'u', ownerName: 'T', created: '', resultsReleased: false, paper: { school: 'Wilpanet Academy', logo, details: ['Class', 'Section', 'Index number'] } };
+    const blocks = questionPaper({ test, startLabel: 'Blank.' });
+    expect(blocks[0]).toMatchObject({ t: 'school', name: 'Wilpanet Academy' });
+    expect(blocks.find((b) => b.t === 'fill')).toMatchObject({ labels: ['Name', 'Class', 'Section', 'Index number', 'Date'] });
+    expect(blocksToPdf(blocks, 'x').output()).toContain('Wilpanet Academy');
+    expect((await blocksToDocx(blocks, 'x')).length).toBeGreaterThan(1000);
+    const st = { name: 'Ama', email: 'a@x', status: 'handed in', details: { Class: 'Form 3', Section: 'B' }, score: 3, max: 10, tasks: t.tasks.map((k) => ({ text: k.text, marks: 0, max: k.marks, ok: false, reason: '' })) };
+    const raw = resultsPdf(test, [st]).output();
+    expect(raw).toContain('Form 3 / B'); expect(raw).toContain('Class: Form 3, Section: B');
   });
 });

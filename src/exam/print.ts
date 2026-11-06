@@ -3,11 +3,12 @@
 //     paper per student (each checkpoint's marks awarded and the reason).
 //   * studentResultPdf: the same marked paper, for a student's own result.
 import { jsPDF } from 'jspdf';
-import type { Counters, TestPublic } from '@/cloud/school';
+import type { Counters, PaperSettings, TestPublic } from '@/cloud/school';
+import { drawSchool } from './paper';
 
 export interface PrintTask { text: string; marks: number; max: number; ok: boolean | null; reason: string; }
 export interface PrintStudent {
-  name: string; email: string; status: string; submittedAt?: string; autoSubmitted?: boolean;
+  name: string; email: string; status: string; details?: Record<string, string>; submittedAt?: string; autoSubmitted?: boolean;
   counters?: Counters;
   score: number | null; max: number; adjust?: number; comment?: string;
   tasks: PrintTask[];
@@ -17,13 +18,16 @@ const M = 48;                    // page margin (pt)
 const fmtDate = (s?: string) => (s ? new Date(s).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 
+let paper: PaperSettings | undefined;   // school name and logo for the document being made
 function header(doc: jsPDF, title: string, sub: string) {
   const w = doc.internal.pageSize.getWidth();
-  doc.setFont('times', 'bold'); doc.setFontSize(15); doc.text(clean(title), M, M);
-  doc.setFont('times', 'normal'); doc.setFontSize(10.5); doc.text(clean(sub), M, M + 16);
-  doc.setLineWidth(0.6); doc.line(M, M + 24, w - M, M + 24);
-  return M + 42;
+  const top = drawSchool(doc, paper, M, M);
+  doc.setFont('times', 'bold'); doc.setFontSize(15); doc.text(clean(title), M, top);
+  doc.setFont('times', 'normal'); doc.setFontSize(10.5); doc.text(clean(sub), M, top + 16);
+  doc.setLineWidth(0.6); doc.line(M, top + 24, w - M, top + 24);
+  return top + 42;
 }
+const detailText = (s: PrintStudent) => Object.entries(s.details ?? {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
 function footer(doc: jsPDF, left: string) {
   const n = doc.getNumberOfPages(); const w = doc.internal.pageSize.getWidth(); const h = doc.internal.pageSize.getHeight();
   for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('times', 'normal'); doc.setFontSize(9); doc.text(left, M, h - 24); doc.text(`Page ${i} of ${n}`, w - M, h - 24, { align: 'right' }); }
@@ -37,7 +41,8 @@ function studentPages(doc: jsPDF, testTitle: string, s: PrintStudent, first: boo
   if (!first) doc.addPage('a4', 'portrait');
   const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
   const title = `${testTitle}: marked paper`;
-  let y = header(doc, title, `${s.name}${className ? `, ${className}` : ''}${s.email ? ` (${s.email})` : ''}`);
+  const dt = detailText(s);
+  let y = header(doc, title, `${s.name}${dt ? `. ${dt}` : className ? `, ${className}` : ''}${s.email ? `. ${s.email}` : ''}`);
   doc.setFontSize(11);
   const final = s.score === null ? null : Math.max(0, Math.min(s.max, s.score + (s.adjust ?? 0)));
   const lines = [
@@ -93,6 +98,7 @@ function studentPages(doc: jsPDF, testTitle: string, s: PrintStudent, first: boo
 
 /** Class mark sheet (landscape) plus, optionally, one page per student. */
 export function resultsPdf(test: TestPublic, students: PrintStudent[], opts: { className?: string; sheet?: boolean; pages?: boolean } = {}): jsPDF {
+  paper = test.paper;
   const sheet = opts.sheet ?? true, pages = opts.pages ?? true;
   const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: sheet ? 'landscape' : 'portrait' });
   const max = test.tasks.reduce((s, x) => s + x.marks, 0);
@@ -100,13 +106,14 @@ export function resultsPdf(test: TestPublic, students: PrintStudent[], opts: { c
   if (sheet) {
     const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
     let y = header(doc, `${test.title}: mark sheet`, sub);
-    const nameW = 170, totW = 46, pW = 36, noW = 24;
-    const colW = Math.max(18, Math.min(40, (w - 2 * M - noW - nameW - totW - pW) / Math.max(1, test.tasks.length)));
-    const xTask = (i: number) => M + noW + nameW + i * colW;
+    const dKeys = (test.paper?.details ?? []).filter((k) => students.some((s) => s.details?.[k]));
+    const nameW = dKeys.length ? 140 : 170, dW = dKeys.length ? 100 : 0, totW = 46, pW = 36, noW = 24;
+    const colW = Math.max(18, Math.min(40, (w - 2 * M - noW - nameW - dW - totW - pW) / Math.max(1, test.tasks.length)));
+    const xTask = (i: number) => M + noW + nameW + dW + i * colW;
     const xTot = xTask(test.tasks.length), xPct = xTot + totW;
     const head = () => {
       doc.setFont('times', 'bold'); doc.setFontSize(9.5);
-      doc.text('No.', M, y); doc.text('Student', M + noW, y);
+      doc.text('No.', M, y); doc.text('Student', M + noW, y); if (dW) doc.text(clean(dKeys.join(' / ')), M + noW + nameW, y);
       test.tasks.forEach((t, i) => { doc.text(`T${i + 1}`, xTask(i) + colW / 2, y - 9, { align: 'center' }); doc.setFont('times', 'normal'); doc.text(`/${t.marks}`, xTask(i) + colW / 2, y, { align: 'center' }); doc.setFont('times', 'bold'); });
       doc.text('Total', xTot + totW - 4, y, { align: 'right' }); doc.text('%', xPct + pW - 4, y, { align: 'right' });
       doc.setFont('times', 'normal'); y += 5; doc.setLineWidth(0.5); doc.line(M, y, xPct + pW, y); y += 13;
@@ -117,6 +124,7 @@ export function resultsPdf(test: TestPublic, students: PrintStudent[], opts: { c
       doc.setFontSize(10);
       doc.text(String(n + 1), M, y);
       doc.text(wrap(doc, s.name, nameW - 8)[0], M + noW, y);
+      if (dW) doc.text(wrap(doc, dKeys.map((k) => s.details?.[k] ?? '').join(' / '), dW - 6)[0] ?? '', M + noW + nameW, y);
       s.tasks.forEach((t, i) => doc.text(s.score === null ? '' : String(t.marks), xTask(i) + colW / 2, y, { align: 'center' }));
       const final = s.score === null ? null : Math.max(0, Math.min(s.max, s.score + (s.adjust ?? 0)));
       doc.text(final === null ? 'not marked' : String(final), xTot + totW - 4, y, { align: 'right' });
@@ -154,7 +162,8 @@ export function resultsPdf(test: TestPublic, students: PrintStudent[], opts: { c
 }
 
 /** A single student's result sheet. */
-export function studentResultPdf(testTitle: string, s: PrintStudent): jsPDF {
+export function studentResultPdf(testTitle: string, s: PrintStudent, settings?: PaperSettings): jsPDF {
+  paper = settings;
   const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
   studentPages(doc, testTitle, s, true);
   footer(doc, testTitle);

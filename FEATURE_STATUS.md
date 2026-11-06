@@ -185,8 +185,9 @@ Each has fictional records, primary keys, enforced relationships, example querie
 |---|---|---|
 | Practical test mode (sign-in, code, timer, autosave, submit, resume after reload) | Tested | |
 | Marking checks (tables, fields, keys, records, validation, relationships, query results, parameter queries, forms, reports, custom SQL) | Tested | Sorted answers accept rows that tie on the sort field in any order. |
-| Ready-made tests for all 11 samples (Core 8 tasks, Extended 8 tasks, Full paper 18 tasks) | Tested | Values are picked from the data each time; every test comes with model answers. Unit tests check that the model answer earns full marks and the starting database none, for every sample. |
-| Task bank for every sample (18 tasks each) and for a blank database | Tested | |
+| Ready-made tests for all 11 samples (Core 9 tasks, Extended 9 tasks, Full paper 20 tasks) | Tested | Values are picked from the data each time; every test comes with model answers. Unit tests check that the model answer earns full marks and the starting database none, for every sample. |
+| Task bank for every sample (20 tasks each) and for a blank database | Tested | |
+| School name and logo on printed papers; paper total with automatic spreading of marks; student details (Class, Section, ...) filled in before starting | Tested | |
 | Build a model answer and try the marking key | Tested | |
 | Integrity monitoring, live monitor, results, release | Tested | |
 | Printable results (PDF): class mark sheet with every checkpoint; marked paper per student (marks available and awarded for each checkpoint, reasons, totals, signatures) | Tested | Times, plain layout. |

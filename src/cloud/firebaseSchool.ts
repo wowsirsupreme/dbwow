@@ -119,14 +119,14 @@ export function createFirebaseSchool(config: FirebaseConfig): SchoolBackend {
       await fs.deleteDoc(ref);
     },
 
-    async startAttempt(t) {
+    async startAttempt(t, details) {
       const c = await me(); const { fs } = c.m;
       const id = `${t.id}_${c.uid}`;
       const ref = fs.doc(c.db, 'attempts', id);
       const d = await fs.getDoc(ref);
       if (d.exists()) return { attempt: data<Attempt>(d), resumed: true };
       const now = Date.now();
-      const a: Attempt = { id, testId: t.id, uid: c.uid, name: c.user.name, email: c.user.email, classId: t.classId, status: 'in-progress', startedAt: new Date(now).toISOString(), deadline: new Date(now + t.durationMin * 60000).toISOString(), lastSeen: new Date(now).toISOString(), counters: zeroCounters() };
+      const a: Attempt = { id, testId: t.id, uid: c.uid, name: c.user.name, email: c.user.email, classId: t.classId, status: 'in-progress', startedAt: new Date(now).toISOString(), deadline: new Date(now + t.durationMin * 60000).toISOString(), lastSeen: new Date(now).toISOString(), counters: zeroCounters(), details: details ?? {} };
       const { id: _id, ...rest } = a; void _id;
       await fs.setDoc(ref, { ...rest, deadlineMs: now + t.durationMin * 60000 });
       return { attempt: a, resumed: false };

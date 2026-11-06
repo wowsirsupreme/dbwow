@@ -4,13 +4,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle2, ClipboardList, Copy, Download, Eye, Plus, Printer, RefreshCw, Trash2, Users, Wand2, XCircle } from 'lucide-react';
 import { cloudMessage } from '@/cloud/backend';
 import { getBackend, useCloud } from '@/cloud/sync';
-import { newCode, today, zeroCounters, type Attempt, type AttemptEvent, type ClassInfo, type DayStats, type Member, type StoredGrade, type TestKey, type TestPublic } from '@/cloud/school';
+import { DEFAULT_DETAILS, newCode, today, zeroCounters, type PaperSettings, type Attempt, type AttemptEvent, type ClassInfo, type DayStats, type Member, type StoredGrade, type TestKey, type TestPublic } from '@/cloud/school';
 import { describeCheck, grade, type Check, type ExamTask, type GradeResult } from '@/exam/checks';
 import { WowProject, uid } from '@/engine/project';
 import { SAMPLE_LIST, buildSample, type SampleId } from '@/engine/samples';
 import { LEVELS, readyTest, startDatabase, taskLibrary, type LevelId, type LibTask } from '@/exam/library';
 import { pdfBytes, resultsPdf, type PrintStudent } from '@/exam/print';
-import { blocksToDocx, blocksToPdf, markScheme, questionPaper, type PaperInfo } from '@/exam/paper';
+import { blocksToDocx, blocksToPdf, logoFromFile, markScheme, questionPaper, spreadMarks, type PaperInfo } from '@/exam/paper';
 import { saveProject } from '@/engine/persistence';
 import { downloadBytes } from '@/engine/persistence';
 import type { DataType } from '@/engine/types';
@@ -91,6 +91,38 @@ function ClassesView({ classes, reload }: { classes: ClassInfo[]; reload: () => 
           {members?.length === 0 && <tr><td colSpan={4} className="muted">No students yet.</td></tr>}
         </tbody></table>
       </div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- school and paper settings
+const PAPER_KEY = 'dbwow.paper';
+function paperDefaults(): PaperSettings {
+  try { const d = JSON.parse(localStorage.getItem(PAPER_KEY) ?? 'null') as Partial<PaperSettings> | null; if (d) return { school: d.school ?? '', logo: d.logo, details: d.details?.length ? d.details : DEFAULT_DETAILS }; } catch { /* ignore */ }
+  return { school: '', details: DEFAULT_DETAILS };
+}
+function PaperFields({ t, setT, marks, spread }: { t: TestPublic; setT: (t: TestPublic) => void; marks: number; spread: (n: number) => void }) {
+  const p = t.paper ?? { school: '', details: DEFAULT_DETAILS };
+  const set = (patch: Partial<PaperSettings>) => setT({ ...t, paper: { ...p, ...patch } });
+  const [detailText, setDetailText] = useState(p.details.join(', '));
+  const want = p.totalMarks;
+  return (
+    <div className="tz-paper mt-3">
+      <h2 style={{ margin: '0 0 6px' }}>School and paper</h2>
+      <div className="tz-form">
+        <label>School name<input value={p.school} onChange={(e) => set({ school: e.target.value })} aria-label="School name" placeholder="Printed at the top of every paper" /></label>
+        <label>Logo
+          <span className="flex gap-2" style={{ alignItems: 'center' }}>
+            {p.logo && <img src={p.logo} alt="School logo" style={{ height: 34, border: '1px solid var(--line)' }} data-testid="logo-preview" />}
+            <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" aria-label="Logo" style={{ border: 0, padding: 0 }} onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { set({ logo: await logoFromFile(f) }); } catch (er) { void messageBox((er as Error).message, 'Logo', 'warn'); } e.target.value = ''; }} />
+            {p.logo && <button className="link small" onClick={() => set({ logo: undefined })}>Remove</button>}
+          </span>
+        </label>
+        <label>Total marks for the paper<input type="number" min={1} max={500} value={want ?? ''} placeholder={`${marks} (the tasks added up)`} onChange={(e) => set({ totalMarks: e.target.value === '' ? undefined : Math.max(1, Number(e.target.value) || 1) })} aria-label="Total marks" /></label>
+        <label>Students fill in before starting<input value={detailText} onChange={(e) => { setDetailText(e.target.value); set({ details: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) }); }} aria-label="Student details" placeholder="Class, Section" /><span className="small muted">Separate with commas, e.g. Class, Section, Index number. Their name comes from their account.</span></label>
+      </div>
+      {want !== undefined && want !== marks && <div className="banner warn mt-1">The tasks add up to {marks} marks, not {want}. <button className="btn btn-sm" onClick={() => spread(want)} data-testid="spread-marks">Spread the marks to make {want}</button> <span className="small">(keeps the proportions, whole marks, at least 1 per task)</span></div>}
+      {want !== undefined && want === marks && <p className="small muted mt-1">The tasks add up to {want} marks.</p>}
     </div>
   );
 }
@@ -227,7 +259,7 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
   const user = useCloud((s) => s.user)!;
   const project = useApp((s) => s.project);
   const [loaded, setLoaded] = useState(!id);
-  const [t, setT] = useState<TestPublic>(() => ({ id: '', title: '', instructions: '', classId: classes[0]?.id ?? null, durationMin: 45, status: 'draft', code: newCode(), tasks: [], start: { kind: 'blank' }, settings: { requireFullscreen: true, allowLearning: false }, ownerUid: user.uid, ownerName: user.name, created: new Date().toISOString(), resultsReleased: false }));
+  const [t, setT] = useState<TestPublic>(() => ({ id: '', title: '', instructions: '', classId: classes[0]?.id ?? null, durationMin: 45, status: 'draft', code: newCode(), tasks: [], start: { kind: 'blank' }, settings: { requireFullscreen: true, allowLearning: false }, ownerUid: user.uid, ownerName: user.name, created: new Date().toISOString(), resultsReleased: false, paper: paperDefaults() }));
   const [tasks, setTasks] = useState<DraftTask[]>([]);
   const [startFrom, setStartFrom] = useState<'keep' | 'current' | 'ready'>('keep');
   const [readyBytes, setReadyBytes] = useState<Uint8Array | null>(null);
@@ -294,6 +326,8 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
     setErr(null);
     if (!t.title.trim()) { setErr('Give the test a title.'); return; }
     if (!tasks.length) { setErr('Add at least one task.'); return; }
+    const want = t.paper?.totalMarks;
+    if (want && want !== marks) { setErr(`The tasks add up to ${marks} marks but the paper's total is ${want}. Press "Spread the marks" or change the task marks.`); return; }
     const bad = tasks.findIndex((x) => !x.text.trim());
     if (bad >= 0) { setErr(`Task ${bad + 1} has no wording.`); return; }
     setSaving(true);
@@ -304,7 +338,9 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
         bytes = project.db.export(); start = { kind: 'file', name: project.name, size: bytes.length };
       }
       if (t.start.kind === 'file' && startFrom === 'ready' && readyBytes) { bytes = readyBytes; start = { kind: 'file', name: t.start.name, size: bytes.length }; }
-      const pub: TestPublic = { ...t, start, tasks: tasks.map(({ id: tid, text, marks: m }) => ({ id: tid, text: text.trim(), marks: m })) };
+      const paper: PaperSettings = { school: t.paper?.school.trim() ?? '', details: (t.paper?.details ?? DEFAULT_DETAILS).map((x) => x.trim()).filter(Boolean), ...(t.paper?.logo ? { logo: t.paper.logo } : {}), ...(t.paper?.totalMarks ? { totalMarks: t.paper.totalMarks } : {}) };
+      try { localStorage.setItem(PAPER_KEY, JSON.stringify({ school: paper.school, logo: paper.logo, details: paper.details })); } catch { /* ignore */ }
+      const pub: TestPublic = { ...t, paper, start, tasks: tasks.map(({ id: tid, text, marks: m }) => ({ id: tid, text: text.trim(), marks: m })) };
       const key: TestKey = { tasks: tasks.map(({ id: tid, check }) => ({ id: tid, check })) };
       const newId = await school.saveTest(pub, key, bytes);
       done(newId);
@@ -337,6 +373,7 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
       {startFrom === 'ready' && t.start.kind === 'file' && <p className="small muted mt-1">Students start with: {t.start.name}. It is saved with the test when you press Save test.</p>}
       {t.start.kind === 'file' && t.start.size > 0 && startFrom === 'keep' && <p className="small muted mt-1">Saved starting database: {t.start.name} ({Math.round(t.start.size / 1024)} KB). <button className="link" onClick={() => setStartFrom('current')}>Replace it with the database open now</button></p>}
 
+      <PaperFields t={t} setT={setT} marks={marks} spread={(n) => { const m = spreadMarks(tasks.map((x) => x.marks), n); setTasks(tasks.map((x, i) => ({ ...x, marks: m[i] }))); }} />
       <div className="tz-head mt-3"><h2 style={{ margin: 0 }}>Tasks <span className="muted small">{tasks.length} tasks · {marks} marks</span></h2>
         <button className="btn" data-testid="add-task" onClick={() => setTasks([...tasks, { id: uid('task'), text: '', marks: 1, check: blankCheck('table') }])}><Plus size={13} /> Add task</button>
         <button className="btn" onClick={async () => {
@@ -517,7 +554,7 @@ function Monitor({ test, go }: { test?: TestPublic; go: (s: Section) => void }) 
           const g = progress[a.id];
           return (
             <tr key={a.id} className={flags.length ? 'flag' : ''} data-testid="monitor-row" title={flags.join(', ')}>
-              <td><span className={'dot ' + (online ? 'on' : '')} />{a.name}<div className="small muted">{a.email}</div></td>
+              <td><span className={'dot ' + (online ? 'on' : '')} />{a.name}<div className="small muted">{[...Object.values(a.details ?? {}).filter(Boolean), a.email].join(' · ')}</div></td>
               <td>{a.status === 'submitted' ? <span className="tag ok">{a.autoSubmitted ? 'Time up' : 'Handed in'}</span> : <span className="tag">Working</span>}</td>
               <td>{a.status === 'in-progress' ? secs(Math.max(0, (Date.parse(a.deadline) - now) / 1000)) : '-'}</td>
               <td>{g ? <b>{g.score}/{g.max}</b> : <span className="muted small">-</span>}</td>
@@ -602,15 +639,16 @@ function Results({ test, classes, go, reload }: { test?: TestPublic; classes: Cl
   const marked = rows.filter((a) => grades[a.uid]);
   const avg = marked.length ? marked.reduce((s, a) => s + finalOf(grades[a.uid])!, 0) / marked.length : 0;
   const csv = () => {
-    const head = ['Name', 'Email', 'Status', 'Score', 'Max', ...test.tasks.map((_, i) => `Task ${i + 1}`), 'Tab switches', 'Full-screen exits', 'Pastes', 'Pasted characters', 'Active minutes', 'Idle minutes', 'Away minutes', 'Teacher adjustment', 'Comment'];
-    const lines = rows.map((a) => { const g = grades[a.uid]; const c = { ...zeroCounters(), ...a.counters }; return [a.name, a.email, a.status, finalOf(g) ?? '', max, ...test.tasks.map((t) => g?.tasks.find((x) => x.id === t.id)?.marks ?? ''), c.tabSwitches, c.fullscreenExits, c.pastes, c.pastedChars, Math.round(c.activeSec / 60), Math.round(c.idleSec / 60), Math.round(c.hiddenSec / 60), g?.teacherAdjust ?? '', g?.comment ?? '']; });
+    const dk = test.paper?.details ?? [];
+    const head = ['Name', 'Email', ...dk, 'Status', 'Score', 'Max', ...test.tasks.map((_, i) => `Task ${i + 1}`), 'Tab switches', 'Full-screen exits', 'Pastes', 'Pasted characters', 'Active minutes', 'Idle minutes', 'Away minutes', 'Teacher adjustment', 'Comment'];
+    const lines = rows.map((a) => { const g = grades[a.uid]; const c = { ...zeroCounters(), ...a.counters }; return [a.name, a.email, ...dk.map((k) => a.details?.[k] ?? ''), a.status, finalOf(g) ?? '', max, ...test.tasks.map((t) => g?.tasks.find((x) => x.id === t.id)?.marks ?? ''), c.tabSwitches, c.fullscreenExits, c.pastes, c.pastedChars, Math.round(c.activeSec / 60), Math.round(c.idleSec / 60), Math.round(c.hiddenSec / 60), g?.teacherAdjust ?? '', g?.comment ?? '']; });
     const text = [head, ...lines].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     downloadBytes(new TextEncoder().encode(text), `${test.title} results.csv`, 'text/csv');
   };
   const printable = (list: Attempt[]): PrintStudent[] => list.map((a) => {
     const g = grades[a.uid];
     return {
-      name: a.name, email: a.email, status: a.status === 'submitted' ? 'handed in' : 'still working', submittedAt: a.submittedAt, autoSubmitted: a.autoSubmitted,
+      name: a.name, email: a.email, details: a.details, status: a.status === 'submitted' ? 'handed in' : 'still working', submittedAt: a.submittedAt, autoSubmitted: a.autoSubmitted,
       counters: { ...zeroCounters(), ...a.counters }, score: g ? g.score : null, max, adjust: g?.teacherAdjust, comment: g?.comment,
       tasks: test.tasks.map((t) => { const r = g?.tasks.find((x) => x.id === t.id); return { text: t.text, marks: r?.marks ?? 0, max: t.marks, ok: r ? r.ok : null, reason: r?.reason ?? '' }; }),
     };
@@ -636,7 +674,7 @@ function Results({ test, classes, go, reload }: { test?: TestPublic; classes: Cl
       <div className="tz-scroll"><table className="tz-table" data-testid="results-table"><thead><tr><th>Student</th><th>Score</th>{test.tasks.map((t, i) => <th key={t.id} title={t.text}>T{i + 1}<div className="small muted">/{t.marks}</div></th>)}<th>Concerns</th><th>Adjust</th><th>Comment</th></tr></thead><tbody>
         {rows.map((a) => { const g = grades[a.uid]; const flags = concern({ ...zeroCounters(), ...a.counters }); return (
           <tr key={a.id} data-testid="result-row">
-            <td>{a.name} <button className="icon-btn" title={`Print ${a.name}'s result`} onClick={() => print([a], { sheet: false, pages: true }, a.name)} data-testid="print-one"><Printer size={12} /></button><div className="small muted">{a.status === 'submitted' ? 'Handed in' : 'Still working'}</div></td>
+            <td>{a.name} {a.details && Object.values(a.details).some(Boolean) && <span className="small muted"> ({Object.values(a.details).filter(Boolean).join(', ')})</span>} <button className="icon-btn" title={`Print ${a.name}'s result`} onClick={() => print([a], { sheet: false, pages: true }, a.name)} data-testid="print-one"><Printer size={12} /></button><div className="small muted">{a.status === 'submitted' ? 'Handed in' : 'Still working'}</div></td>
             <td><b data-testid="result-score">{g ? `${finalOf(g)} / ${max}` : '-'}</b></td>
             {test.tasks.map((t) => { const r = g?.tasks.find((x) => x.id === t.id); return <td key={t.id} title={r?.reason}>{r ? (r.ok ? <CheckCircle2 size={15} color="#3c8d40" aria-label="met" /> : <XCircle size={15} color="#a4262c" aria-label="not met" />) : ''}</td>; })}
             <td className="small">{flags.length ? <span className="warn"><AlertTriangle size={12} style={{ display: 'inline' }} /> {flags.join(', ')}</span> : <span className="muted">None</span>}</td>

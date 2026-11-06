@@ -32,7 +32,16 @@ export interface TestPublic {
   ownerName: string;
   created: string;
   resultsReleased: boolean;
+  paper?: PaperSettings;
 }
+/** How printed papers look and what students fill in before starting. */
+export interface PaperSettings {
+  school: string;               // school name printed at the top of every paper
+  logo?: string;                // small PNG data URL
+  totalMarks?: number;          // the paper's total; task marks must add up to it
+  details: string[];            // what students fill in, e.g. Class, Section
+}
+export const DEFAULT_DETAILS = ['Class', 'Section'];
 export interface TestKey { tasks: Pick<ExamTask, 'id' | 'check'>[]; }
 
 export interface Counters {
@@ -70,6 +79,7 @@ export interface Attempt {
   score?: number;
   max?: number;
   taskResults?: GradeResult['tasks'];
+  details?: Record<string, string>; // what the student filled in before starting (Class, Section, ...)
   teacherAdjust?: number;
   comment?: string;
 }
@@ -112,7 +122,7 @@ export interface SchoolBackend {
   setTestStatus(id: string, status: TestStatus): Promise<void>;
   deleteTest(id: string): Promise<void>;
 
-  startAttempt(t: TestPublic): Promise<{ attempt: Attempt; resumed: boolean }>;
+  startAttempt(t: TestPublic, details?: Record<string, string>): Promise<{ attempt: Attempt; resumed: boolean }>;
   getAttempt(id: string): Promise<Attempt | null>;
   updateAttempt(id: string, patch: Partial<Pick<Attempt, 'counters' | 'lastSeen' | 'status' | 'submittedAt' | 'autoSubmitted'>>): Promise<void>;
   saveAttemptSnapshot(id: string, bytes: Uint8Array): Promise<void>;
