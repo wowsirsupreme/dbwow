@@ -1,5 +1,12 @@
 # DBWOW Development Log
 
+## 6 November 2026 — Release 0.6.1: question papers, mark schemes, marked papers
+
+* Question paper for every test (Tests > Paper, or Results > Question paper), as PDF or an editable Word file (.docx, Times New Roman): title, class, time allowed, total marks, name/class/date lines, instructions to candidates (how to sign in, start, save, submit; what is recorded), the teacher's instructions, the database provided (each table with its fields, data types, keys and number of records; optional), and every task numbered with its marks in brackets. Print it before the test or hand it out on the day.
+* Mark scheme (teachers only, PDF or Word): each task, its marks, how DBWOW checks it, and the answer SQL for query tasks.
+* Marked papers: Results > Marked papers prints one paper per student: every checkpoint with marks available, marks awarded, met or not met and the reason, checkpoint total, adjustment, final mark, comment, monitoring summary, and lines for the marker's and student's signatures. "Both" prints the class mark sheet followed by the marked papers. The per-student print button and the student's own printout use the same layout.
+* Tests: 90 unit tests; exams.cjs downloads marked papers, a Word question paper and a PDF mark scheme.
+
 ## 6 November 2026 — Release 0.6.0: ready-made tests for every sample, six new samples, printable results
 
 * Six new sample databases (fictional data, enforced relationships, example queries, forms and reports): Sports League, Hotel Bookings, Bus Transport, Cinema, Restaurant and Farm Co-operative. There are now eleven. Each new sample has beginner, intermediate and advanced exercises in the Learning Centre.

@@ -87,3 +87,24 @@ describe('printable results', () => {
     expect(studentResultPdf(t.title, student('Ama', g)).getNumberOfPages()).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('printed papers', () => {
+  it('makes a question paper and a mark scheme as PDF and Word', async () => {
+    const { questionPaper, markScheme, blocksToPdf, blocksToDocx } = await import('@/exam/paper');
+    const t = await readyTest('restaurant', 'full', 9);
+    const test = { id: 't', title: t.title, instructions: 'Answer every question.', classId: null, durationMin: 90, status: 'draft' as const, code: 'ABC123', tasks: t.tasks.map(({ id, text, marks }) => ({ id, text, marks })), start: { kind: 'file' as const, name: 'x', size: 1 }, settings: { requireFullscreen: true, allowLearning: false }, ownerUid: 'u', ownerName: 'T', created: '', resultsReleased: false };
+    const tables = t.start.tables().map((x) => ({ name: x.name, records: 1, fields: x.fields.map((f) => ({ name: f.name, type: f.type, key: !!f.primaryKey })) }));
+    const info = { test, className: 'Form 3A', startLabel: 'You start with the Restaurant database.', tables };
+    const paper = questionPaper(info);
+    expect(paper.filter((b) => b.t === 'task')).toHaveLength(18);
+    const pdf = blocksToPdf(paper, test.title); const raw = pdf.output();
+    expect(raw).toContain('Time allowed: 90 minutes'); expect(raw).not.toContain('SELECT');
+    const scheme = markScheme(info, { tasks: t.tasks.map(({ id, check }) => ({ id, check })) });
+    expect(blocksToPdf(scheme, 'x').output()).toContain('SELECT');
+    const docx = await blocksToDocx(paper, test.title);
+    expect(String.fromCharCode(docx[0], docx[1])).toBe('PK');
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync('/tmp/claude-0/paper.pdf', new Uint8Array(pdf.output('arraybuffer'))); writeFileSync('/tmp/claude-0/paper.docx', docx);
+    writeFileSync('/tmp/claude-0/scheme.pdf', new Uint8Array(blocksToPdf(scheme, 'x').output('arraybuffer')));
+  });
+});

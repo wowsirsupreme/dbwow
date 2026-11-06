@@ -43,9 +43,9 @@ To refresh them: `npm run build:portable && node tests/e2e/screens.cjs docs/scre
 Teachers sign in with a teacher account and use the **Teacher** button in the title bar.
 
 1. **Classes:** create a class and give students its code (File > Tests > Join class).
-2. **Tests:** New test, then either **Use a ready-made test** (any of the eleven samples; Core, Extended or Full paper) or add tasks from the task bank (every sample, or a blank database) and your own. Values in ready-made tasks are picked from the data each time. **Build a model answer and try the key** checks the marking before students see it. Save, then **Open** the test and give students the test code.
+2. **Tests:** New test, then either **Use a ready-made test** (any of the eleven samples; Core, Extended or Full paper) or add tasks from the task bank (every sample, or a blank database) and your own. Values in ready-made tasks are picked from the data each time. **Build a model answer and try the key** checks the marking before students see it. Save. **Paper** prints the question paper (PDF or Word) to hand out before or during the test, and the mark scheme. Then **Open** the test and give students the test code.
 3. **Live monitor:** see who is working, time left, tab switches, full-screen exits, pastes, active/idle time and progress; open a student's timeline or a copy of their database.
-4. **Results:** Mark all, adjust marks and add comments, export CSV, print a **mark sheet** (every checkpoint for every student) and **student pages** (each checkpoint with its mark and reason) as PDF, see which tasks the class found hard, then **Release results**.
+4. **Results:** Mark all, adjust marks and add comments, export CSV, print a **mark sheet** (every checkpoint for every student) and each student's **marked paper** (marks awarded for each checkpoint, with the reason) as PDF, see which tasks the class found hard, then **Release results**.
 5. **Student progress:** per class, how much time each student spends actively working, focus, practical steps, quiz accuracy, trophies, test marks and the trend between tests.
 
 Students: File > Tests, enter the code, read the rules and start. Work saves to the teacher automatically; Submit when finished (it hands in automatically at the end). Results appear under File > Tests when released, with a printable result sheet.

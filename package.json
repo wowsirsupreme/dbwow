@@ -1,6 +1,6 @@
 {
   "name": "dbwow",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "DBWOW - an educational, Access-inspired relational database environment built on real SQLite (sql.js/WebAssembly).",
   "scripts": {
@@ -14,6 +14,7 @@
     "test:e2e": "npm run build:portable && node tests/e2e/acceptance.cjs tests/e2e/out && node tests/e2e/features.cjs tests/e2e/out && node tests/e2e/learning.cjs tests/e2e/out && node tests/e2e/accounts.cjs tests/e2e/out && node tests/e2e/exams.cjs tests/e2e/out"
   },
   "dependencies": {
+    "docx": "^9.5.1",
     "firebase": "12.19.0",
     "jspdf": "4.2.1",
     "lucide-react": "0.460.0",

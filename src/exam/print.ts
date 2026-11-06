@@ -1,7 +1,7 @@
 // Printable practical-test results (PDF, Times, plain layout).
-//   * resultsPdf: a class mark sheet with every checkpoint, followed by one
-//     page per student with each checkpoint's mark and the reason.
-//   * studentResultPdf: the same student page, for a student's own result.
+//   * resultsPdf: a class mark sheet with every checkpoint and/or one marked
+//     paper per student (each checkpoint's marks awarded and the reason).
+//   * studentResultPdf: the same marked paper, for a student's own result.
 import { jsPDF } from 'jspdf';
 import type { Counters, TestPublic } from '@/cloud/school';
 
@@ -32,46 +32,63 @@ function footer(doc: jsPDF, left: string) {
 const clean = (s: string) => s.replace(/\s*→\s*/g, ' to ').replace(/×/g, 'x').replace(/∅/g, '(empty)').replace(/[✓✔]/g, 'yes').replace(/[✗✘]/g, 'no').replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
 function wrap(doc: jsPDF, s: string, w: number): string[] { return doc.splitTextToSize(clean(s), w) as string[]; }
 
-/** One student's page(s): every checkpoint with its mark and reason. */
-function studentPages(doc: jsPDF, testTitle: string, s: PrintStudent, first: boolean) {
+/** One student's marked paper: every checkpoint with the marks awarded and the reason. */
+function studentPages(doc: jsPDF, testTitle: string, s: PrintStudent, first: boolean, className?: string) {
   if (!first) doc.addPage('a4', 'portrait');
   const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
-  let y = header(doc, testTitle, `Result for ${s.name}${s.email ? ` (${s.email})` : ''}`);
+  const title = `${testTitle}: marked paper`;
+  let y = header(doc, title, `${s.name}${className ? `, ${className}` : ''}${s.email ? ` (${s.email})` : ''}`);
   doc.setFontSize(11);
   const final = s.score === null ? null : Math.max(0, Math.min(s.max, s.score + (s.adjust ?? 0)));
   const lines = [
-    `Status: ${s.status}${s.submittedAt ? ` (${fmtDate(s.submittedAt)})${s.autoSubmitted ? ', time ran out' : ''}` : ''}`,
-    final === null ? 'Not marked yet.' : `Final mark: ${final} out of ${s.max} (${pct(final, s.max)}%)${s.adjust ? `, including a teacher adjustment of ${s.adjust > 0 ? '+' : ''}${s.adjust}` : ''}`,
+    `Handed in: ${s.submittedAt ? `${fmtDate(s.submittedAt)}${s.autoSubmitted ? ' (time ran out)' : ''}` : s.status}`,
+    final === null ? 'Not marked yet.' : `Final mark: ${final} out of ${s.max} (${pct(final, s.max)}%)`,
   ];
   for (const l of lines) { doc.text(clean(l), M, y); y += 15; }
   y += 6;
   // checkpoint table
-  const cNo = M, cTask = M + 28, cMark = w - M - 60, cRes = w - M;
-  const head = () => { doc.setFont('times', 'bold'); doc.text('No.', cNo, y); doc.text('Checkpoint', cTask, y); doc.text('Mark', cMark, y); doc.text('Met', cRes, y, { align: 'right' }); doc.setFont('times', 'normal'); y += 5; doc.setLineWidth(0.4); doc.line(M, y, w - M, y); y += 13; };
+  const cNo = M, cTask = M + 26, cAv = w - M - 92, cAw = w - M;
+  const textW = cAv - cTask - 40;
+  const head = () => { doc.setFont('times', 'bold'); doc.setFontSize(10.5); doc.text('No.', cNo, y); doc.text('Checkpoint', cTask, y); doc.text('Available', cAv, y, { align: 'right' }); doc.text('Awarded', cAw, y, { align: 'right' }); doc.setFont('times', 'normal'); y += 5; doc.setLineWidth(0.4); doc.line(M, y, w - M, y); y += 13; };
   head();
   s.tasks.forEach((t, i) => {
     doc.setFontSize(11);
-    const task = wrap(doc, t.text || `Task ${i + 1}`, cMark - cTask - 12);
+    const task = wrap(doc, t.text || `Task ${i + 1}`, textW);
     doc.setFontSize(9.5);
-    const reason = t.reason ? wrap(doc, t.reason, cMark - cTask - 12) : [];
+    const reason = t.reason ? wrap(doc, (t.ok === null ? '' : t.ok ? 'Met. ' : 'Not met. ') + t.reason, textW) : [];
     const need = task.length * 13 + reason.length * 11.5 + 8;
-    if (y + need > h - 48) { doc.addPage('a4', 'portrait'); y = header(doc, testTitle, `Result for ${s.name} (continued)`); head(); }
+    if (y + need > h - 48) { doc.addPage('a4', 'portrait'); y = header(doc, title, `${s.name} (continued)`); head(); }
     doc.setFontSize(11);
     doc.text(String(i + 1), cNo, y);
     doc.text(task, cTask, y);
-    doc.text(`${t.marks} / ${t.max}`, cMark, y);
-    doc.text(t.ok === null ? '' : t.ok ? 'Yes' : 'No', cRes, y, { align: 'right' });
+    doc.text(String(t.max), cAv, y, { align: 'right' });
+    doc.setFont('times', 'bold'); doc.text(s.score === null ? '' : String(t.marks), cAw, y, { align: 'right' }); doc.setFont('times', 'normal');
     y += task.length * 13;
     if (reason.length) { doc.setFontSize(9.5); doc.setFont('times', 'italic'); doc.text(reason, cTask, y - 2); doc.setFont('times', 'normal'); y += reason.length * 11.5; }
     doc.setDrawColor(200); doc.setLineWidth(0.3); doc.line(M, y - 4, w - M, y - 4); doc.setDrawColor(0);
     y += 8;
   });
+  // totals
+  if (y + 70 > h - 48) { doc.addPage('a4', 'portrait'); y = header(doc, title, `${s.name} (continued)`); }
+  const raw = s.tasks.reduce((n, t) => n + t.marks, 0);
+  doc.setFontSize(11);
+  const tot = (label: string, v: string, bold = false) => { doc.setFont('times', bold ? 'bold' : 'normal'); doc.text(label, cAv - 60, y, { align: 'right' }); doc.text(v, cAw, y, { align: 'right' }); y += 15; };
+  if (s.score !== null) {
+    tot('Checkpoint marks', `${raw} / ${s.max}`);
+    if (s.adjust) tot('Teacher adjustment', `${s.adjust > 0 ? '+' : ''}${s.adjust}`);
+    tot('Final mark', `${final} / ${s.max}`, true);
+  }
+  doc.setFont('times', 'normal'); y += 8;
   const extra: string[] = [];
   if (s.comment) extra.push(`Teacher's comment: ${s.comment}`);
   const c = s.counters;
   if (c) extra.push(`During the test: ${c.tabSwitches} tab switch(es), ${c.focusLost} time(s) another window was in front, ${c.fullscreenExits} full-screen exit(s), ${c.pastes} paste(s) (${c.pastedChars} characters), ${c.reloads} reload(s). Active ${Math.round(c.activeSec / 60)} min, idle ${Math.round(c.idleSec / 60)} min, away ${Math.round(c.hiddenSec / 60)} min.`);
-  doc.setFontSize(11);
-  for (const e of extra) { const l = wrap(doc, e, w - 2 * M); if (y + l.length * 14 > h - 48) { doc.addPage('a4', 'portrait'); y = header(doc, testTitle, `Result for ${s.name} (continued)`); } doc.text(l, M, y); y += l.length * 14 + 6; }
+  for (const e of extra) { const l = wrap(doc, e, w - 2 * M); if (y + l.length * 14 > h - 48) { doc.addPage('a4', 'portrait'); y = header(doc, title, `${s.name} (continued)`); } doc.text(l, M, y); y += l.length * 14 + 6; }
+  if (y + 40 > h - 48) { doc.addPage('a4', 'portrait'); y = header(doc, title, `${s.name} (continued)`); }
+  y += 18; doc.setLineWidth(0.4);
+  doc.text('Marked by:', M, y); doc.line(M + 58, y + 2, M + 220, y + 2);
+  doc.text('Date:', M + 240, y); doc.line(M + 268, y + 2, M + 360, y + 2);
+  doc.text('Student:', M + 375, y); doc.line(M + 420, y + 2, w - M, y + 2);
 }
 
 /** Class mark sheet (landscape) plus, optionally, one page per student. */
@@ -131,7 +148,7 @@ export function resultsPdf(test: TestPublic, students: PrintStudent[], opts: { c
       y += l.length * 12.5 + 5;
     });
   }
-  if (pages) students.forEach((s, i) => studentPages(doc, test.title, s, !sheet && i === 0));
+  if (pages) students.forEach((s, i) => studentPages(doc, test.title, s, !sheet && i === 0, opts.className));
   footer(doc, test.title);
   return doc;
 }

@@ -189,7 +189,8 @@ Each has fictional records, primary keys, enforced relationships, example querie
 | Task bank for every sample (18 tasks each) and for a blank database | Tested | |
 | Build a model answer and try the marking key | Tested | |
 | Integrity monitoring, live monitor, results, release | Tested | |
-| Printable results (PDF): class mark sheet with every checkpoint, one page per student, single student | Tested | Times, plain layout. |
+| Printable results (PDF): class mark sheet with every checkpoint; marked paper per student (marks available and awarded for each checkpoint, reasons, totals, signatures) | Tested | Times, plain layout. |
+| Question paper (PDF or Word) and mark scheme (PDF or Word) for any test | Tested | Question paper lists the starting database's tables and fields. |
 | Student result sheet (PDF) in File > Tests > My results | Tested | Includes the teacher's adjustment and comment. |
 | Study analytics per student | Tested | |
 

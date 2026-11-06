@@ -162,6 +162,8 @@ async function step(name, fn) {
     await tp.locator('h1').click();
     await tp.waitForTimeout(400);
     await tp.screenshot({ path: path.join(OUT, 'x5-results.png') });
+    const [papers] = await Promise.all([tp.waitForEvent('download'), tp.click('[data-testid="print-papers"]')]);
+    assert.match(papers.suggestedFilename(), /marked papers\.pdf$/);
     const [sheet] = await Promise.all([tp.waitForEvent('download'), tp.click('[data-testid="print-all"]')]);
     assert.match(sheet.suggestedFilename(), /results\.pdf$/);
     assert.equal(fs.readFileSync(await sheet.path()).subarray(0, 5).toString(), '%PDF-');
@@ -239,6 +241,17 @@ async function step(name, fn) {
     await tp.click('[data-testid="save-test"]');
     await tp.waitForFunction(() => document.querySelectorAll('[data-testid="test-row"]').length === 2);
     const t = Object.values(cloud.dump('test/')).find((x) => /Farm/.test(x.title));
+    // question paper (Word) and mark scheme (PDF) from the tests list
+    const row = tp.locator('[data-testid="test-row"]').filter({ hasText: 'Farm' });
+    await row.locator('[data-testid="print-paper"]').click();
+    await tp.locator('.dlg label.chk').filter({ hasText: 'Word' }).locator('input').check();
+    const [qp] = await Promise.all([tp.waitForEvent('download'), tp.click('[data-testid="paper-go"]')]);
+    assert.match(qp.suggestedFilename(), /question paper\.docx$/);
+    assert.equal(fs.readFileSync(await qp.path()).subarray(0, 2).toString(), 'PK');
+    await row.locator('[data-testid="print-paper"]').click();
+    await tp.locator('.dlg label.chk').filter({ hasText: 'Mark scheme' }).locator('input').check();
+    const [ms] = await Promise.all([tp.waitForEvent('download'), tp.click('[data-testid="paper-go"]')]);
+    assert.match(ms.suggestedFilename(), /mark scheme\.pdf$/);
     assert.equal(t.start.kind, 'file'); assert.ok(t.start.size > 10000, 'starting database saved with the test');
     assert.equal(t.tasks.length, 10);
   });

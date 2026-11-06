@@ -10,6 +10,7 @@ import { WowProject, uid } from '@/engine/project';
 import { SAMPLE_LIST, buildSample, type SampleId } from '@/engine/samples';
 import { LEVELS, readyTest, startDatabase, taskLibrary, type LevelId, type LibTask } from '@/exam/library';
 import { pdfBytes, resultsPdf, type PrintStudent } from '@/exam/print';
+import { blocksToDocx, blocksToPdf, markScheme, questionPaper, type PaperInfo } from '@/exam/paper';
 import { saveProject } from '@/engine/persistence';
 import { downloadBytes } from '@/engine/persistence';
 import type { DataType } from '@/engine/types';
@@ -94,6 +95,50 @@ function ClassesView({ classes, reload }: { classes: ClassInfo[]; reload: () => 
   );
 }
 
+// ---------------------------------------------------------------- printed papers
+/** Describe what students start with, including the tables of a supplied database. */
+async function paperInfo(test: TestPublic, classes: ClassInfo[]): Promise<PaperInfo> {
+  const className = classes.find((c) => c.id === test.classId)?.name;
+  let p: WowProject | null = null; let startLabel: string;
+  try {
+    if (test.start.kind === 'blank') startLabel = 'You start with a new, empty database. You create everything yourself.';
+    else if (test.start.kind === 'sample') { const info = SAMPLE_LIST.find((x) => x.id === (test.start as { sample: string }).sample); startLabel = `You start with a copy of the ${info?.name ?? 'sample'} database (fictional data). Its tables are listed below.`; p = await buildSample((test.start as { sample: SampleId }).sample); }
+    else { startLabel = `You start with the database "${test.start.name}". Its tables are listed below.`; const b = test.id ? await getBackend()!.school!.loadTestStart(test.id) : null; if (b) p = await WowProject.open(b); }
+  } catch { startLabel = 'You start with the database your teacher has prepared.'; }
+  const tables = p?.tables().map((t) => ({ name: t.name, records: Number(p!.db.scalar(`SELECT count(*) FROM "${t.name.replace(/"/g, '""')}"`)), fields: t.fields.map((f) => ({ name: f.name, type: f.type, key: !!f.primaryKey })) }));
+  return { test, className, startLabel, tables };
+}
+async function printPaper(test: TestPublic, classes: ClassInfo[]) {
+  const pick = await openDialog<{ what: 'paper' | 'scheme'; fmt: 'pdf' | 'docx'; tables: boolean }>('Print the test', (close) => <PaperDialog close={close} />, 520);
+  if (!pick) return;
+  try {
+    const info = await paperInfo(test, classes);
+    if (!pick.tables) info.tables = undefined;
+    let blocks;
+    if (pick.what === 'scheme') { const key = await getBackend()!.school!.getKey(test.id); if (!key) throw new Error('The marking key is missing.'); blocks = markScheme(info, key); }
+    else blocks = questionPaper(info);
+    const name = `${test.title} ${pick.what === 'scheme' ? 'mark scheme' : 'question paper'}`;
+    const foot = pick.what === 'scheme' ? `${test.title}: mark scheme (confidential)` : test.title;
+    if (pick.fmt === 'pdf') await downloadBytes(pdfBytes(blocksToPdf(blocks, foot)), `${name}.pdf`, 'application/pdf');
+    else await downloadBytes(await blocksToDocx(blocks, foot), `${name}.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  } catch (e) { void messageBox(cloudMessage(e), 'Print the test', 'warn'); }
+}
+function PaperDialog({ close }: { close: (v: { what: 'paper' | 'scheme'; fmt: 'pdf' | 'docx'; tables: boolean } | null) => void }) {
+  const [what, setWhat] = useState<'paper' | 'scheme'>('paper');
+  const [fmt, setFmt] = useState<'pdf' | 'docx'>('pdf');
+  const [tables, setTables] = useState(true);
+  return (
+    <div>
+      <p className="small mb-2"><b>Question paper</b>: for students, before or during the test. Instructions, time, marks, the database provided and every task with its marks.</p>
+      <p className="small mb-2"><b>Mark scheme</b>: for teachers only. Each task, its marks, how DBWOW checks it and the answer SQL.</p>
+      <div className="flex gap-3 mb-2"><label className="chk"><input type="radio" name="pw" checked={what === 'paper'} onChange={() => setWhat('paper')} /> Question paper</label><label className="chk"><input type="radio" name="pw" checked={what === 'scheme'} onChange={() => setWhat('scheme')} /> Mark scheme</label></div>
+      <div className="flex gap-3 mb-2"><label className="chk"><input type="radio" name="pf" checked={fmt === 'pdf'} onChange={() => setFmt('pdf')} /> PDF</label><label className="chk"><input type="radio" name="pf" checked={fmt === 'docx'} onChange={() => setFmt('docx')} /> Word (.docx, editable)</label></div>
+      {what === 'paper' && <label className="chk small"><input type="checkbox" checked={tables} onChange={(e) => setTables(e.target.checked)} /> List the tables and fields of the starting database</label>}
+      <div className="dlg-buttons"><button className="btn btn-primary" onClick={() => close({ what, fmt, tables })} data-testid="paper-go">Download</button><button className="btn" onClick={() => close(null)}>Cancel</button></div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------- tests list
 function TestsList({ tests, classes, go, reload }: { tests: TestPublic[]; classes: ClassInfo[]; go: (s: Section) => void; reload: () => void }) {
   const school = getBackend()!.school!;
@@ -114,6 +159,7 @@ function TestsList({ tests, classes, go, reload }: { tests: TestPublic[]; classe
               <button className="btn btn-sm" onClick={() => go({ k: 'monitor', id: t.id })} data-testid="monitor-test">Live monitor</button>
               <button className="btn btn-sm" onClick={() => go({ k: 'results', id: t.id })} data-testid="results-test">Results</button>
               <button className="btn btn-sm" onClick={() => go({ k: 'edit', id: t.id })}>Edit</button>
+              <button className="btn btn-sm" onClick={() => void printPaper(t, classes)} data-testid="print-paper" title="Question paper and mark scheme (PDF or Word)"><Printer size={12} /> Paper</button>
               <button className="icon-btn" title="Delete test" onClick={async () => { if (await confirmBox(`Delete "${t.title}"? Attempts already made are kept, but the test and its marking key are removed.`, { danger: true })) { await school.deleteTest(t.id); reload(); } }}><Trash2 size={13} /></button>
             </td>
           </tr>
@@ -579,7 +625,9 @@ function Results({ test, classes, go, reload }: { test?: TestPublic; classes: Cl
         <button className="btn btn-primary" onClick={() => void markAll()} disabled={busy || !attempts.length} data-testid="mark-all">{busy ? 'Marking…' : 'Mark all'}</button>
         <button className="btn" onClick={csv} disabled={!rows.length}><Download size={13} /> CSV</button>
         <button className="btn" onClick={() => print(rows, { sheet: true, pages: false }, 'mark sheet')} disabled={!rows.length} data-testid="print-sheet" title="Class mark sheet: every student's mark for each checkpoint"><Printer size={13} /> Mark sheet</button>
-        <button className="btn" onClick={() => print(rows, { sheet: true, pages: true }, 'results')} disabled={!rows.length} data-testid="print-all" title="Mark sheet followed by one page per student with every checkpoint and the reason"><Printer size={13} /> Mark sheet + student pages</button>
+        <button className="btn" onClick={() => print(rows, { sheet: false, pages: true }, 'marked papers')} disabled={!rows.length} data-testid="print-papers" title="One marked paper per student: every checkpoint with the marks awarded and the reason"><Printer size={13} /> Marked papers</button>
+        <button className="btn" onClick={() => print(rows, { sheet: true, pages: true }, 'results')} disabled={!rows.length} data-testid="print-all" title="Mark sheet followed by every student's marked paper"><Printer size={13} /> Both</button>
+        <button className="btn" onClick={() => void printPaper(test, classes)} data-testid="print-paper-r"><Printer size={13} /> Question paper</button>
         <button className="btn" onClick={() => go({ k: 'monitor', id: test.id })}>Live monitor</button>
         {test.resultsReleased ? <span className="tag ok">Released to students</span> : <button className="btn" disabled={!marked.length} data-testid="release" onClick={async () => { if (await confirmBox(`Release marks for ${marked.length} student(s)? They will see their score and the reason for each task.`)) { await school.releaseResults(test.id); reload(); setMsg('Results released.'); } }}>Release results</button>}
       </div>
