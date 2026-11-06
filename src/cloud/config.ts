@@ -12,3 +12,6 @@ export const FIREBASE_CONFIG: FirebaseConfig | null = {
   messagingSenderId: '240027883917',
   appId: '1:240027883917:web:afea99bf81933ac2b345c4',
 };
+
+/** Teacher accounts (must verify their email address). More teachers can be added from the Teacher dashboard. */
+export const TEACHER_EMAILS: string[] = ['wowsirsupreme@gmail.com'];

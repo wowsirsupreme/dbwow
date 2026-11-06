@@ -6,7 +6,7 @@
 // change without touching the designers.
 import type { LearnState } from '@/learning/achievements';
 
-export interface CloudUser { uid: string; name: string; email: string; }
+export interface CloudUser { uid: string; name: string; email: string; emailVerified?: boolean; }
 export interface CloudDbInfo { id: string; name: string; modified: string; size: number; shareId?: string; }
 export interface SharedDb { id: string; name: string; ownerName: string; modified: string; size: number; bytes: Uint8Array; }
 
@@ -17,6 +17,10 @@ export interface CloudBackend {
   signIn(email: string, password: string): Promise<CloudUser>;
   signInWithGoogle?(): Promise<CloudUser>;
   resetPassword(email: string): Promise<void>;
+  sendVerification?(): Promise<void>;
+  /** Reload the signed-in user (after verifying the email address). */
+  refreshUser?(): Promise<CloudUser | null>;
+  school?: import('./school').SchoolBackend;
   signOut(): Promise<void>;
   listDatabases(): Promise<CloudDbInfo[]>;
   saveDatabase(id: string, name: string, bytes: Uint8Array): Promise<CloudDbInfo>;

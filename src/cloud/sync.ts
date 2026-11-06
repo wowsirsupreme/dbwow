@@ -13,14 +13,14 @@ import { createTestBackend } from './testBackend';
 import { mergeProgress } from './merge';
 export { mergeProgress };
 
-type W = Window & { __DBWOW_FAKE_CLOUD__?: boolean };
+type W = Window & { __DBWOW_FAKE_CLOUD__?: string };
 let backend: CloudBackend | null | undefined;
 export function getBackend(): CloudBackend | null {
   if (backend !== undefined) return backend;
   if (typeof window === 'undefined') return null;
   const w = window as W;
   const web = /^https?:$/.test(location.protocol) && !/claude\.ai|claudeusercontent|anthropic/.test(location.hostname);
-  backend = w.__DBWOW_FAKE_CLOUD__ ? createTestBackend() : FIREBASE_CONFIG && web ? createFirebaseBackend(FIREBASE_CONFIG) : null;
+  backend = typeof w.__DBWOW_FAKE_CLOUD__ === 'string' ? createTestBackend(w.__DBWOW_FAKE_CLOUD__) : FIREBASE_CONFIG && web ? createFirebaseBackend(FIREBASE_CONFIG) : null;
   return backend;
 }
 
@@ -87,6 +87,7 @@ export async function uploadNow(): Promise<CloudDbInfo | null> {
   if (dbTimer) { clearTimeout(dbTimer); dbTimer = null; }
   const be = getBackend(); const { project, projectId } = useApp.getState();
   if (!be || !useCloud.getState().user || !project || !projectId) return null;
+  if (/^(exam|review)-/.test(projectId)) return null;   // test databases go to the teacher, not the student's own list
   try {
     useCloud.setState({ status: 'saving' });
     const info = await be.saveDatabase(projectId, project.name, project.db.export());

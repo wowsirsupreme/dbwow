@@ -38,6 +38,20 @@ The interface follows the familiar desktop database layout: ribbon with contextu
 
 To refresh them: `npm run build:portable && node tests/e2e/screens.cjs docs/screenshots`.
 
+## Practical tests and the Teacher dashboard (online version)
+
+Teachers sign in with a teacher account and use the **Teacher** button in the title bar.
+
+1. **Classes:** create a class and give students its code (File > Tests > Join class).
+2. **Tests:** New test, add tasks (from the task bank or your own), choose how each is marked, set the time and the starting database, then **Try the marking key** on a model answer database. Save, then **Open** the test and give students the test code.
+3. **Live monitor:** see who is working, time left, tab switches, full-screen exits, pastes, active/idle time and progress; open a student's timeline or a copy of their database.
+4. **Results:** Mark all, adjust marks and add comments, export CSV, see which tasks the class found hard, then **Release results**.
+5. **Student progress:** per class, how much time each student spends actively working, focus, practical steps, quiz accuracy, trophies, test marks and the trend between tests.
+
+Students: File > Tests, enter the code, read the rules and start. Work saves to the teacher automatically; Submit when finished (it hands in automatically at the end). Results appear under File > Tests when released.
+
+Teacher accounts: the address in `src/cloud/config.ts` (`TEACHER_EMAILS`, also in `firestore.rules`) once verified, plus anyone a teacher adds. Publish `firestore.rules` in the Firebase console after each update.
+
 ## Three ways to run it
 
 | Delivery | How |

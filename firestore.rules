@@ -1,28 +1,114 @@
 rules_version = '2';
 // DBWOW security rules. Paste into Firebase console > Firestore Database > Rules, then Publish.
-//   users/{uid}/...      only the signed-in owner can read or write
-//   shares/{shareId}/... anyone can read (share links); only the owner can write
+//
+//   users/{uid}/...               owner reads and writes; teachers read
+//   shares/{shareId}/...          anyone reads (share links); only the owner writes
+//   teachers/{uid}                teacher list (teachers manage it)
+//   classes/{cid}                 signed-in users read (to join by code); teachers write
+//   classes/{cid}/members/{uid}   a student adds or removes only themself; teachers read and manage
+//   tests/{tid}                   signed-in users read the public part; teachers write
+//   tests/{tid}/key/main          marking key: teachers only
+//   tests/{tid}/grades/{uid}      marks: teachers only (copied into attempts on release)
+//   attempts/{tid_uid}            the student creates it while the test is open and updates
+//                                 only counters/status; marks can only be written by teachers
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() { return request.auth != null; }
+    function isTeacher() {
+      return signedIn() && (
+        (request.auth.token.email == 'wowsirsupreme@gmail.com' && request.auth.token.email_verified == true)
+        || exists(/databases/$(database)/documents/teachers/$(request.auth.uid)));
+    }
+
+    // ---------- accounts and personal databases ----------
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if signedIn() && (request.auth.uid == uid || isTeacher());
+      allow write: if signedIn() && request.auth.uid == uid;
       match /{rest=**} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read: if signedIn() && (request.auth.uid == uid || isTeacher());
+        allow write: if signedIn() && request.auth.uid == uid;
       }
     }
 
     match /shares/{shareId} {
       allow read: if true;
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.auth != null && resource.data.ownerUid == request.auth.uid
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid
                     && request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
       match /chunks/{chunkId} {
         allow read: if true;
-        allow write: if request.auth != null
-                     && get(/databases/$(database)/documents/shares/$(shareId)).data.ownerUid == request.auth.uid;
+        allow write: if signedIn()
+          && get(/databases/$(database)/documents/shares/$(shareId)).data.ownerUid == request.auth.uid;
+      }
+    }
+
+    // ---------- teachers and classes ----------
+    match /teachers/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isTeacher());
+      allow write: if isTeacher();
+    }
+
+    match /classes/{cid} {
+      allow read: if signedIn();
+      allow write: if isTeacher();
+      match /members/{uid} {
+        allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
+        allow create, update: if signedIn() && request.auth.uid == uid;
+        allow delete: if isTeacher() || (signedIn() && request.auth.uid == uid);
+      }
+    }
+
+    // ---------- practical tests ----------
+    match /tests/{tid} {
+      allow read: if signedIn();
+      allow write: if isTeacher();
+      match /key/{doc} {
+        allow read, write: if isTeacher();
+      }
+      match /grades/{uid} {
+        allow read, write: if isTeacher();
+      }
+      match /chunks/{chunkId} {
+        allow read: if signedIn();
+        allow write: if isTeacher();
+      }
+    }
+
+    match /attempts/{aid} {
+      function test() { return get(/databases/$(database)/documents/tests/$(request.resource.data.testId)).data; }
+      function own() { return signedIn() && resource.data.uid == request.auth.uid; }
+      // the fields a student may change during their attempt
+      function studentFields() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['counters', 'lastSeen', 'status', 'submittedAt', 'autoSubmitted', 'gen', 'chunks', 'snapshotAt']);
+      }
+      function inTime() { return request.time.toMillis() <= resource.data.deadlineMs + 300000; }
+
+      allow read: if isTeacher() || own();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && aid == request.resource.data.testId + '_' + request.auth.uid
+        && test().status == 'open'
+        && request.resource.data.status == 'in-progress'
+        && !('score' in request.resource.data);
+      allow update: if isTeacher() || (own() && studentFields()
+        && (resource.data.status == 'in-progress' || request.resource.data.status == 'submitted')
+        && (request.resource.data.status == 'submitted'
+            || (request.resource.data.status == 'in-progress' && resource.data.status == 'in-progress' && inTime())));
+      allow delete: if isTeacher();
+
+      match /chunks/{chunkId} {
+        function attempt() { return get(/databases/$(database)/documents/attempts/$(aid)).data; }
+        allow read: if isTeacher() || (signedIn() && attempt().uid == request.auth.uid);
+        allow write: if isTeacher() || (signedIn() && attempt().uid == request.auth.uid
+          && attempt().status == 'in-progress'
+          && request.time.toMillis() <= attempt().deadlineMs + 300000);
+      }
+      match /events/{eid} {
+        allow create: if signedIn() && get(/databases/$(database)/documents/attempts/$(aid)).data.uid == request.auth.uid;
+        allow read, delete: if isTeacher();
       }
     }
 

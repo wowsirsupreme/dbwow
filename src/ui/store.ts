@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import type { WowProject } from '@/engine/project';
 import { saveProject, rememberLast } from '@/engine/persistence';
 
-export type TabKind = 'table' | 'query' | 'form' | 'report' | 'relationships' | 'macro' | 'module' | 'learning' | 'tool';
+export type TabKind = 'table' | 'query' | 'form' | 'report' | 'relationships' | 'macro' | 'module' | 'learning' | 'tool' | 'teacher';
 export interface Tab {
   id: string;
   kind: TabKind;
@@ -60,7 +60,7 @@ export const useApp = create<AppState>((set, get) => ({
       unsub = p.db.onChange(() => { useApp.setState({ version: useApp.getState().version + 1 }); scheduleSave(); }) as () => void;
       rememberLast(id);
     }
-    const keep = get().tabs.filter((t) => t.kind === 'learning');   // the Learning Centre stays open across databases
+    const keep = get().tabs.filter((t) => t.kind === 'learning' || t.kind === 'teacher');   // the Learning Centre stays open across databases
     set({ project: p, projectId: id, tabs: keep, activeTabId: keep[0]?.id ?? null, version: get().version + 1, backstage: false, ribbonTab: 'home', savedAt: p ? new Date().toLocaleTimeString() : null, selection: {} });
   },
   bump: () => set({ version: get().version + 1 }),

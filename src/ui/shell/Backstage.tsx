@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Cloud, Database, FilePlus, FolderOpen, Trash2, GraduationCap } from 'lucide-react';
 import { AccountPage, SharePage } from '../cloud';
+import { TestsPage } from '../exam';
 import { useCloud } from '@/cloud/sync';
 import { listProjects, type ProjectInfo } from '@/engine/persistence';
 import { SAMPLE_LIST } from '@/engine/samples';
@@ -12,6 +13,7 @@ export interface BackstageOps {
   save: () => void; saveAs: () => void; downloadCopy: () => void; properties: () => void; backup: () => void; restore: () => void;
   compact: () => void; exportDb: () => void; print: () => void; close: () => void; deleteStored: (id: string, name: string) => void; learning: () => void;
   openCloud: (id: string, name: string) => void;
+  teacher: () => void;
 }
 
 export function Backstage({ ops }: { ops: BackstageOps }) {
@@ -20,7 +22,7 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
   const setBackstage = useApp((s) => s.setBackstage);
   const setRibbonTab = useApp((s) => s.setRibbonTab);
   const version = useApp((s) => s.version);
-  const [page, setPage] = useState<'info' | 'new' | 'open' | 'account' | 'share'>(project ? 'info' : 'new');
+  const [page, setPage] = useState<'info' | 'new' | 'open' | 'account' | 'share' | 'tests'>(project ? 'info' : 'new');
   const cloudUser = useCloud((s) => s.user);
   const cloudOn = useCloud((s) => s.available);
   const [recent, setRecent] = useState<ProjectInfo[]>([]);
@@ -44,6 +46,7 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
         <button disabled={!project} onClick={ops.print}>Print</button>
         <button disabled={!project} onClick={ops.close}>Close</button>
         <div style={{ flex: 1 }} />
+        {cloudOn && <button className={page === 'tests' ? 'active' : ''} onClick={() => setPage('tests')} data-testid="bs-tests">Tests</button>}
         {cloudOn && <button className={page === 'account' ? 'active' : ''} onClick={() => setPage('account')} data-testid="bs-account"><Cloud size={14} style={{ display: 'inline', marginRight: 6 }} />{cloudUser ? 'Account' : 'Sign in / Register'}</button>}
         <button onClick={ops.learning}><GraduationCap size={14} style={{ display: 'inline', marginRight: 6 }} />Learning Centre</button>
       </div>
@@ -65,6 +68,7 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
         )}
         {page === 'account' && <AccountPage openCloud={ops.openCloud} />}
         {page === 'share' && <SharePage goAccount={() => setPage('account')} />}
+        {page === 'tests' && <TestsPage goAccount={() => setPage('account')} openTeacher={ops.teacher} />}
         {page === 'new' && (
           <div>
             <h1>New</h1>

@@ -129,9 +129,14 @@ export function scheduleEvaluate() {
   evalTimer = setTimeout(evaluateNow, 250);
 }
 
+let paused = false;
+/** Pause practical ticks and trophies (during a practical test they would give answers away). */
+export function setLearningPaused(b: boolean) { paused = b; if (!b) scheduleEvaluate(); }
+
 /** Record newly verified steps for every practical that applies, then award achievements. */
 export function evaluateNow() {
   evalTimer = null;
+  if (paused) return;
   const p = useApp.getState().project;
   const L = useLearning.getState();
   const before = L.progress;

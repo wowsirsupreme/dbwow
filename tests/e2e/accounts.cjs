@@ -2,6 +2,7 @@
 // Uses the stand-in cloud (window.__DBWOW_FAKE_CLOUD__); each "device" is a
 // separate browser context, and the stand-in server is copied between them.
 const { chromium } = require('playwright');
+const fakecloud = require('./fakecloud.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -15,17 +16,19 @@ async function step(name, fn) {
   catch (e) { results.push(['FAIL', name, e.message]); console.log('FAIL', name, '\n   ', e.message.split('\n').slice(0, 4).join(' | ')); }
 }
 (async () => {
+  const cloud = await fakecloud.start();
   const browser = await chromium.launch();
   const errors = [];
   const device = async (server) => {
     const ctx = await browser.newContext({ viewport: { width: 1400, height: 860 }, acceptDownloads: true });
-    await ctx.addInitScript((srv) => { window.__DBWOW_FAKE_CLOUD__ = true; if (srv && !localStorage.getItem('dbwow.__testcloud')) localStorage.setItem('dbwow.__testcloud', srv); }, server ?? null);
+    void server;
+    await ctx.addInitScript((url) => { window.__DBWOW_FAKE_CLOUD__ = url; }, cloud.url);
     const page = await ctx.newPage();
     page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
     page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
     return { ctx, page };
   };
-  const serverOf = (page) => page.evaluate(() => { const s = JSON.parse(localStorage.getItem('dbwow.__testcloud')); delete s.session; return JSON.stringify(s); });
+  const serverOf = async () => cloud.dump();
   const project = (page) => page.evaluate(() => { const p = window.__DBWOW__.store.getState().project; return p && { name: p.name, tables: p.tableNames() }; });
   const prompt = async (page, value) => { await page.locator('.dlg input').first().fill(value); await page.click('.dlg .dlg-buttons button:text-is("OK")'); await page.waitForTimeout(200); };
   const waitSaved = (page) => page.waitForFunction(() => /Saved to your account/.test(document.querySelector('[data-testid="account-button"]')?.getAttribute('title') ?? ''), null, { timeout: 15000 });
@@ -56,9 +59,9 @@ async function step(name, fn) {
     await page.evaluate(() => window.__DBWOW__.store.getState().project.saveTableDesign({ name: 'Pets', fields: [{ id: 'a', name: 'PetID', type: 'AutoNumber', primaryKey: true }, { id: 'b', name: 'PetName', type: 'Short Text' }, { id: 'c', name: 'Photo', type: 'Attachment' }] }));
     await waitSaved(page);
     server = await serverOf(page);
-    const s = JSON.parse(server);
-    const u = Object.values(s.users)[0];
-    assert.equal(Object.values(u.dbs)[0].name, 'MyDB');
+    const dbs = Object.entries(server).filter(([k]) => k.startsWith('db/')).map(([, v]) => v);
+    assert.equal(dbs[0].name, 'MyDB');
+    const u = Object.entries(server).find(([k]) => k.startsWith('user/'))[1];
     assert.ok(JSON.parse(u.progress).quizzes, 'progress saved to the account');
   });
 
@@ -149,7 +152,7 @@ async function step(name, fn) {
     await D.page.goto(URL); await D.page.waitForTimeout(1200);
     await D.page.click('[data-testid="new-blank"]'); await prompt(D.page, 'Local');
     await D.page.waitForTimeout(600);
-    assert.equal(await D.page.evaluate(() => localStorage.getItem('dbwow.__testcloud')), null);
+    assert.equal(Object.keys(cloud.dump('db/')).length, 1, 'nothing new uploaded without an account');
     await D.ctx.close();
   });
 
@@ -157,5 +160,6 @@ async function step(name, fn) {
   console.log(`\n${results.length - fails}/${results.length} account steps passed. Browser errors: ${errors.length}`);
   errors.forEach((e) => console.log('  ', e));
   await browser.close();
+  await cloud.close();
   process.exit(fails || errors.length ? 1 : 0);
 })();

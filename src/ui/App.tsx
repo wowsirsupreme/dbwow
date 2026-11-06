@@ -16,6 +16,11 @@ import { DialogLayer, ContextMenuLayer, openDialog, messageBox, errorBox, confir
 import { Ribbon, useCtxBand } from './shell/Ribbon';
 import { PracticalPanel, RankBadge, Toasts, trackEvent, useLearningTracker } from './learning';
 import { AccountButton, takeSharedLink } from './cloud';
+import { ExamPanel } from './exam';
+import { TeacherDashboard } from './teacher';
+import { examActive, resumeFromStorage, useExam } from '@/exam/session';
+import { startActivity } from '@/cloud/activity';
+import { useCloud } from '@/cloud/sync';
 import { getBackend, startCloud } from '@/cloud/sync';
 import { cloudMessage } from '@/cloud/backend';
 import { NavPane } from './shell/NavPane';
@@ -33,6 +38,11 @@ function newId() { return 'db_' + Date.now().toString(36) + Math.random().toStri
 
 export default function App() {
   useLearningTracker();
+  const examPhase = useExam((s) => s.phase);
+  const cloudUser = useCloud((s) => s.user);
+  // carry on with an unfinished test after a reload (once the account is known)
+  const resumed = React.useRef(false);
+  useEffect(() => { if (cloudUser && !resumed.current) { resumed.current = true; void resumeFromStorage(); } }, [cloudUser]);
   const project = useApp((s) => s.project);
   const backstage = useApp((s) => s.backstage);
   const tabs = useApp((s) => s.tabs);
@@ -142,6 +152,7 @@ export default function App() {
       useApp.getState().bump();
     },
     learning: () => openLearning('topic:intro'),
+    teacher: () => openTeacher(),
   };
 
   useEffect(() => { setDownloadNotifier((m) => void messageBox(m, 'Save file', 'warn')); }, []);
@@ -159,6 +170,7 @@ export default function App() {
       } catch (e) { setBootErr((e as Error).message); }
       setBooting(false);
       startCloud();
+      startActivity();
       const shared = await takeSharedLink();
       if (shared) { try { const p = await WowProject.open(shared.bytes); await adopt(p, newId()); useApp.getState().setStatus(`Opened a copy of "${shared.name}".`); } catch (e) { void errorBox(e, 'Could not open the shared database'); } }
       if (!useApp.getState().project) useApp.getState().setBackstage(true);
@@ -190,7 +202,11 @@ export default function App() {
       try { const r = runQuery(project, q, vals); void messageBox(r.message ?? 'Done.'); } catch (e) { void errorBox(e); }
     }
   };
-  const openLearning = (section: string) => { useApp.getState().setBackstage(false); const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section } }); useApp.getState().updateTab(id, { payload: { section } }); };
+  const openTeacher = () => { useApp.getState().setBackstage(false); useApp.getState().openTab({ kind: 'teacher', name: 'Teacher', title: 'Teacher', view: 'teacher' }); };
+  const openLearning = (section: string) => {
+    const ex = useExam.getState();
+    if (examActive() && !ex.session?.test.settings.allowLearning) { useApp.getState().setStatus('The Learning Centre is closed during this test.'); return; }
+    useApp.getState().setBackstage(false); const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section } }); useApp.getState().updateTab(id, { payload: { section } }); };
   const openTool = (view: string, title: string) => useApp.getState().openTab({ kind: 'tool', name: title, title, view });
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -310,7 +326,8 @@ export default function App() {
     useApp.getState().closeTab(id);
   };
 
-  const learningOpen = tabs.some((t) => t.kind === 'learning');
+  const learningOpen = tabs.some((t) => t.kind === 'learning' || t.kind === 'teacher');
+  const inExam = examPhase === 'running' || examPhase === 'submitting';
   if (booting) return <div className="empty-ws" style={{ height: '100vh' }}>Starting DBWOW…</div>;
   if (bootErr && !project) return <div className="empty-ws" style={{ height: '100vh', padding: 24 }}><div style={{ maxWidth: 560 }}><h1 style={{ fontSize: 22, color: 'var(--accent-dark)', marginBottom: 10 }}>DBWOW</h1><p>{bootErr}</p></div></div>;
 
@@ -324,7 +341,8 @@ export default function App() {
         <Workspace closeTab={(id) => void closeTabSafe(id)} openSample={(id) => void ops.newSample(id)} />
         {(backstage || (!project && !learningOpen)) && <Backstage ops={ops} />}
       </div>
-      {project && <PracticalPanel openInCentre={(id) => openLearning(`prac:${id}`)} openSample={(id) => void ops.newSample(id)} />}
+      {project && !inExam && <PracticalPanel openInCentre={(id) => openLearning(`prac:${id}`)} openSample={(id) => void ops.newSample(id)} />}
+      <ExamPanel />
       <Toasts />
       <StatusBar />
       <DialogLayer />
@@ -336,6 +354,11 @@ export default function App() {
 function uniqueObjName(p: WowProject, type: string, base: string) { let n = base, i = 1; while (p.nameInUse(n)) n = `${base}${++i}`; void type; return n; }
 
 function TitleBar({ onSave }: { onSave: () => void }) {
+  const inExam = useExam((s) => s.phase === 'running' || s.phase === 'submitting');
+  const user = useCloud((s) => s.user);
+  const [isTeacher, setIsTeacher] = React.useState(false);
+  useEffect(() => { setIsTeacher(false); if (user) void getBackend()?.school?.isTeacher().then(setIsTeacher).catch(() => undefined); }, [user]);
+  const openTeacher = () => { useApp.getState().setBackstage(false); useApp.getState().openTab({ kind: 'teacher', name: 'Teacher', title: 'Teacher', view: 'teacher' }); };
   const project = useApp((s) => s.project);
   const saving = useApp((s) => s.saving);
   const savedAt = useApp((s) => s.savedAt);
@@ -361,6 +384,7 @@ function TitleBar({ onSave }: { onSave: () => void }) {
       <div className="title-right">
         {project && <span title="Your changes are stored in this browser automatically"><span className={'save-dot' + (saving ? ' busy' : '')} /><span className="hide-sm">{saving ? 'Saving…' : savedAt ? `Saved ${savedAt}` : ''}</span></span>}
         <AccountButton onOpenAccount={() => { useApp.getState().setRibbonTab('file'); setTimeout(() => (document.querySelector('[data-testid="bs-account"]') as HTMLElement | null)?.click(), 0); }} />
+        {isTeacher && !inExam && <button className="acct-btn" onClick={openTeacher} data-testid="teacher-button" title="Teacher dashboard: tests, live monitor, results, student progress"><GraduationCap size={14} /><span className="hide-sm">Teacher</span></button>}
         <RankBadge onOpen={() => { const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section: 'ach:all' } }); useApp.getState().updateTab(id, { payload: { section: 'ach:all' } }); }} />
         <button className="qat" style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} title="Learning Mode shows contextual tips in every designer" onClick={() => useApp.getState().setLearningMode(!learningMode)}><GraduationCap size={15} /><span className="hide-sm">{learningMode ? 'Learning Mode: On' : 'Learning Mode: Off'}</span></button>
         <button style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer' }} title="Options" onClick={() => { useApp.getState().setRibbonTab('file'); }}><Settings size={15} /></button>
@@ -369,7 +393,7 @@ function TitleBar({ onSave }: { onSave: () => void }) {
   );
 }
 
-const TAB_ICONS: Record<string, LucideIcon> = { table: Table, query: Network, form: FormInput, report: FileBarChart, relationships: GitFork, macro: Workflow, module: FileCode, learning: GraduationCap, tool: Wrench };
+const TAB_ICONS: Record<string, LucideIcon> = { table: Table, query: Network, form: FormInput, report: FileBarChart, relationships: GitFork, macro: Workflow, module: FileCode, learning: GraduationCap, tool: Wrench, teacher: GraduationCap };
 
 function Workspace({ closeTab, openSample }: { closeTab: (id: string) => void; openSample: (id: string) => void }) {
   const tabs = useApp((s) => s.tabs);
@@ -418,6 +442,7 @@ function Editor({ tab, active, openSample }: { tab: Tab; active: boolean; openSa
     case 'macro': return <MacroEditor tab={tab} active={active} project={project} />;
     case 'module': return <ModuleEditor tab={tab} active={active} project={project} />;
     case 'learning': return <LearningCentre tab={tab} project={maybeProject} openSample={openSample} />;
+    case 'teacher': return <TeacherDashboard />;
     case 'tool': return <ToolView tab={tab} project={project} />;
   }
 }
