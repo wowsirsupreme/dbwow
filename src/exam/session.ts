@@ -29,6 +29,8 @@ interface ExamStore {
 export const useExam = create<ExamStore>(() => ({ session: null, counters: zeroCounters(), now: Date.now(), phase: 'idle', saving: false, lastSnapshot: null, error: null, flagged: {}, ready: false }));
 
 export const examActive = () => useExam.getState().phase === 'running' || useExam.getState().phase === 'submitting';
+/** Learning aids (tips, Learning Mode, hints) are off during a test unless the teacher allowed them. */
+export const learningLocked = () => { const s = useExam.getState(); return (s.phase === 'running' || s.phase === 'submitting') && !s.session?.test.settings.allowLearning; };
 export const remainingMs = () => { const s = useExam.getState(); return s.session ? Date.parse(s.session.attempt.deadline) - s.now : 0; };
 
 let events: AttemptEvent[] = [];

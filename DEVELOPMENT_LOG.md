@@ -1,5 +1,10 @@
 # DBWOW Development Log
 
+## 6 November 2026 — Release 0.7.3: no learning aids during a test
+
+* Learning Mode tips (for example the relationship hint about referential integrity) were still shown during a test if the student had Learning Mode on. Now, unless the teacher allows learning aids, tips are hidden and Learning Mode cannot be switched on during the test.
+* The title bar hides the Learning Mode switch, the XP/rank badge and the sign-in button during a test and shows "Test in progress" instead.
+
 ## 6 November 2026 — Release 0.7.2: the test database is named after the student and cannot be lost
 
 * The test database is now named with the student's full name and the test title (for example "Ama Mensah - Sports League: Core practical"). The test panel shows the name and tells students to work only in it and not to close or delete it; the question paper says the same.

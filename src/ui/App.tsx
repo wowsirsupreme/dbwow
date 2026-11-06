@@ -18,7 +18,7 @@ import { PracticalPanel, RankBadge, Toasts, trackEvent, useLearningTracker } fro
 import { AccountButton, takeSharedLink } from './cloud';
 import { ExamPanel, ExamTimeBar, TakeTestPage, openTakeTest } from './exam';
 import { TeacherDashboard } from './teacher';
-import { examActive, resumeFromStorage, useExam } from '@/exam/session';
+import { examActive, learningLocked, resumeFromStorage, useExam } from '@/exam/session';
 import { startActivity } from '@/cloud/activity';
 import { useCloud } from '@/cloud/sync';
 import { getBackend, startCloud } from '@/cloud/sync';
@@ -289,7 +289,7 @@ export default function App() {
     'tools.backup': { run: ops.backup, enabled: has }, 'tools.restore': { run: ops.restore, enabled: has },
     'help.learning': () => openLearning('topic:intro'), 'help.tutorials': () => openLearning('prac:schooldb'), 'help.exercises': () => openLearning('prac:lib-b'),
     'help.sqlref': () => openLearning('ref:sql'), 'help.shortcuts': () => openLearning('ref:keys'),
-    'help.learningMode': { run: () => useApp.getState().setLearningMode(!useApp.getState().learningMode), checked: useApp.getState().learningMode },
+    'help.learningMode': { run: () => { if (learningLocked()) { useApp.getState().setStatus('Learning Mode is off during this test.'); return; } useApp.getState().setLearningMode(!useApp.getState().learningMode); }, checked: useApp.getState().learningMode && !learningLocked() },
     'help.about': () => void messageBox(<div><b>DBWOW</b> — an educational database development environment inspired by desktop database applications.<br /><br />Real relational engine: SQLite {project ? String(project.db.scalar('select sqlite_version()')) : ''} compiled to WebAssembly. Your databases are stored in this browser and can be downloaded as standard SQLite files.<br /><br />Created for classroom teaching and practical database training (WOW Sir). Not affiliated with Microsoft; &quot;Access&quot; is a trademark of Microsoft Corporation.<br /><br />Non-commercial educational project.</div>, 'About DBWOW'),
     'file.new': ops.newBlank, 'file.open': () => { useApp.getState().setBackstage(true); },
     save: { run: () => ops.save(), enabled: has },
@@ -391,10 +391,12 @@ function TitleBar({ onSave }: { onSave: () => void }) {
       <div className="title-text" ref={titleRef} style={band && titleLeft !== null && band.left + band.width > window.innerWidth / 2 - 160 ? { textAlign: 'left', paddingLeft: Math.max(0, band.left + band.width + 24 - titleLeft) } : undefined}>{project ? `${activeTitle ? activeTitle + ' : ' : ''}${project.name} : Database — DBWOW` : 'DBWOW — Educational Database Environment'}</div>
       <div className="title-right">
         {project && <span title="Your changes are stored in this browser automatically"><span className={'save-dot' + (saving ? ' busy' : '')} /><span className="hide-sm">{saving ? 'Saving…' : savedAt ? `Saved ${savedAt}` : ''}</span></span>}
-        <AccountButton onOpenAccount={() => { useApp.getState().setRibbonTab('file'); setTimeout(() => (document.querySelector('[data-testid="bs-account"]') as HTMLElement | null)?.click(), 0); }} />
+        {!inExam && <AccountButton onOpenAccount={() => { useApp.getState().setRibbonTab('file'); setTimeout(() => (document.querySelector('[data-testid="bs-account"]') as HTMLElement | null)?.click(), 0); }} />
+        }
         {isTeacher && !inExam && <button className="acct-btn" onClick={openTeacher} data-testid="teacher-button" title="Teacher dashboard: tests, live monitor, results, student progress"><GraduationCap size={14} /><span className="hide-sm">Teacher</span></button>}
-        <RankBadge onOpen={() => { const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section: 'ach:all' } }); useApp.getState().updateTab(id, { payload: { section: 'ach:all' } }); }} />
-        <button className="qat" style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} title="Learning Mode shows contextual tips in every designer" onClick={() => useApp.getState().setLearningMode(!learningMode)}><GraduationCap size={15} /><span className="hide-sm">{learningMode ? 'Learning Mode: On' : 'Learning Mode: Off'}</span></button>
+        {!inExam && <RankBadge onOpen={() => { const id = useApp.getState().openTab({ kind: 'learning', name: 'Learning Centre', title: 'Learning Centre', view: 'learn', payload: { section: 'ach:all' } }); useApp.getState().updateTab(id, { payload: { section: 'ach:all' } }); }} />}
+        {!inExam && <button className="qat" style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} title="Learning Mode shows contextual tips in every designer" onClick={() => useApp.getState().setLearningMode(!learningMode)}><GraduationCap size={15} /><span className="hide-sm">{learningMode ? 'Learning Mode: On' : 'Learning Mode: Off'}</span></button>}
+        {inExam && <span className="hide-sm" style={{ fontWeight: 600 }} data-testid="exam-badge">Test in progress</span>}
         <button style={{ background: 'transparent', border: 0, color: '#fff', cursor: 'pointer' }} title="Options" onClick={() => { useApp.getState().setRibbonTab('file'); }}><Settings size={15} /></button>
       </div>
     </div>

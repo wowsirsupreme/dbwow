@@ -91,6 +91,7 @@ async function step(name, fn) {
   const S = await device('student');
   await step('Student: joins by the link with no account, full name, class, section, code and pledge; DBWOW turns red with a time bar', async () => {
     const { page } = S;
+    await page.evaluate(() => localStorage.setItem('dbwow.learningMode', 'true'));
     await page.goto(URL + (URL.includes('?') ? '&' : '?') + 'take'); await page.waitForTimeout(1500);
     await page.waitForSelector('[data-testid="take-test"]');
     assert.ok(!(await page.evaluate(() => location.search.includes('take'))), 'link parameter removed after opening');
@@ -119,6 +120,11 @@ async function step(name, fn) {
     assert.deepEqual(a.details, { Class: 'Form 3', Section: 'B' });
     assert.match(a.pledge.text, /responsibility/); assert.ok(a.pledge.at);
     assert.ok(cloud.dump('user/')[`user/${a.uid}`].anonymous, 'no account was created, only a guest');
+    // learning aids off: no Learning Mode tips, no XP badge or sign-in button
+    assert.equal(await page.locator('.learn-bar').count(), 0, 'no learning tips');
+    assert.equal(await page.locator('.titlebar :text("Learning Mode")').count(), 0);
+    assert.equal(await page.locator('[data-testid="sign-in"]').count(), 0);
+    assert.equal(await page.locator('[data-testid="exam-badge"]').count(), 1);
     // learning centre closed
     await page.click('.rtab:text-is("HELP")'); await page.click('[data-cmd="help.learning"]');
     await page.waitForTimeout(300);
