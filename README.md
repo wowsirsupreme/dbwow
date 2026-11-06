@@ -8,7 +8,7 @@ DBWOW is an original, non-commercial educational project. It is not affiliated w
 
 ## What a student can do
 
-1. Create a database (blank, or from one of five fictional sample databases).
+1. Create a database (blank, or from one of eleven fictional sample databases: school, library, hospital, shop, employees, sports league, hotel, bus transport, cinema, restaurant, farm co-operative).
 2. Design tables in Design View: field names, data types, field properties, validation rules, indexes, lookups and primary keys (including composite keys), with drag-and-drop field ordering and a field toolbox.
 3. Enter, edit, sort, filter, search, copy and paste records in Datasheet View.
 4. Create relationships by dragging a primary key onto a foreign key, with enforced referential integrity, cascade update and cascade delete. These become real SQLite FOREIGN KEY constraints.
@@ -43,12 +43,12 @@ To refresh them: `npm run build:portable && node tests/e2e/screens.cjs docs/scre
 Teachers sign in with a teacher account and use the **Teacher** button in the title bar.
 
 1. **Classes:** create a class and give students its code (File > Tests > Join class).
-2. **Tests:** New test, add tasks (from the task bank or your own), choose how each is marked, set the time and the starting database, then **Try the marking key** on a model answer database. Save, then **Open** the test and give students the test code.
+2. **Tests:** New test, then either **Use a ready-made test** (any of the eleven samples; Core, Extended or Full paper) or add tasks from the task bank (every sample, or a blank database) and your own. Values in ready-made tasks are picked from the data each time. **Build a model answer and try the key** checks the marking before students see it. Save, then **Open** the test and give students the test code.
 3. **Live monitor:** see who is working, time left, tab switches, full-screen exits, pastes, active/idle time and progress; open a student's timeline or a copy of their database.
-4. **Results:** Mark all, adjust marks and add comments, export CSV, see which tasks the class found hard, then **Release results**.
+4. **Results:** Mark all, adjust marks and add comments, export CSV, print a **mark sheet** (every checkpoint for every student) and **student pages** (each checkpoint with its mark and reason) as PDF, see which tasks the class found hard, then **Release results**.
 5. **Student progress:** per class, how much time each student spends actively working, focus, practical steps, quiz accuracy, trophies, test marks and the trend between tests.
 
-Students: File > Tests, enter the code, read the rules and start. Work saves to the teacher automatically; Submit when finished (it hands in automatically at the end). Results appear under File > Tests when released.
+Students: File > Tests, enter the code, read the rules and start. Work saves to the teacher automatically; Submit when finished (it hands in automatically at the end). Results appear under File > Tests when released, with a printable result sheet.
 
 Teacher accounts: the address in `src/cloud/config.ts` (`TEACHER_EMAILS`, also in `firestore.rules`) once verified, plus anyone a teacher adds. Publish `firestore.rules` in the Firebase console after each update.
 
@@ -96,7 +96,7 @@ src/engine/           Database engine layer (no UI code)
   interchange.ts      CSV / XLSX / JSON / SQL import and export
   utilities.ts        documenter, dependencies, integrity, performance, statistics, compact
   persistence.ts      IndexedDB storage, backups, downloads
-  samples.ts          five sample databases (fictional data)
+  samples.ts          eleven sample databases (fictional data)
 src/learning/         Learning Mode content and automatic checks
 src/ui/               React interface (shell, ribbon, designers, dialogs)
 tests/                Vitest engine tests and Playwright browser tests

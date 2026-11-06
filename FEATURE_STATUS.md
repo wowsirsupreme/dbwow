@@ -155,7 +155,7 @@ Last updated: 30 October 2026. Automated results: 45/45 engine tests, 10/10 acce
 |---|---|---|
 | 20 topics with key points and knowledge checks | Tested | |
 | Guided practicals (Student Database, Relationships, Forms and Reports, SQL) | Tested | Every step is verified against the actual database state. |
-| 15 sample-database exercises (beginner, intermediate, advanced for each sample) | Tested | Checked by comparing query results with the expected SQL result. |
+| 33 sample-database exercises (beginner, intermediate, advanced for each of the 11 samples) | Tested | Checked by comparing query results with the expected SQL result. |
 | Hints, model answers, explanations of mistakes | Implemented | |
 | Progress tracking | Partial | Stored in the learner's browser (per device). |
 | Contextual tips in every designer (Learning Mode toggle) | Tested | |
@@ -170,8 +170,28 @@ Last updated: 30 October 2026. Automated results: 45/45 engine tests, 10/10 acce
 | Hospital Management (Patients, Doctors, Appointments, Departments, Prescriptions) | Tested |
 | Shop Inventory (Products, Suppliers, Customers, Orders, OrderDetails) | Tested |
 | Employee Management (Employees, Departments, Salaries, Positions) | Tested |
+| Sports League (Teams, Players, Matches, Goals) | Tested |
+| Hotel Bookings (RoomTypes, Rooms, Guests, Bookings) | Tested |
+| Bus Transport (Routes, Buses, Drivers, Trips) | Tested |
+| Cinema (Films, Screens, Showings, Customers, Tickets) | Tested |
+| Restaurant (MenuItems, Waiters, DiningTables, Orders, OrderItems) | Tested |
+| Farm Co-operative (Farmers, Crops, Plots, Harvests) | Tested |
 
 Each has fictional records, primary keys, enforced relationships, example queries, forms and reports.
+
+## Practical tests and teacher tools
+
+| Feature | Status | Notes |
+|---|---|---|
+| Practical test mode (sign-in, code, timer, autosave, submit, resume after reload) | Tested | |
+| Marking checks (tables, fields, keys, records, validation, relationships, query results, parameter queries, forms, reports, custom SQL) | Tested | Sorted answers accept rows that tie on the sort field in any order. |
+| Ready-made tests for all 11 samples (Core 8 tasks, Extended 8 tasks, Full paper 18 tasks) | Tested | Values are picked from the data each time; every test comes with model answers. Unit tests check that the model answer earns full marks and the starting database none, for every sample. |
+| Task bank for every sample (18 tasks each) and for a blank database | Tested | |
+| Build a model answer and try the marking key | Tested | |
+| Integrity monitoring, live monitor, results, release | Tested | |
+| Printable results (PDF): class mark sheet with every checkpoint, one page per student, single student | Tested | Times, plain layout. |
+| Student result sheet (PDF) in File > Tests > My results | Tested | Includes the teacher's adjustment and comment. |
+| Study analytics per student | Tested | |
 
 ## Database tools
 

@@ -70,6 +70,8 @@ export interface Attempt {
   score?: number;
   max?: number;
   taskResults?: GradeResult['tasks'];
+  teacherAdjust?: number;
+  comment?: string;
 }
 export interface AttemptEvent { t: string; type: string; detail?: string; }
 export interface StoredGrade extends GradeResult { uid: string; gradedAt: string; snapshotAt?: string; teacherAdjust?: number; comment?: string; }

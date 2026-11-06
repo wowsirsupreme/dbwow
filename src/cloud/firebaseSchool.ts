@@ -185,7 +185,7 @@ export function createFirebaseSchool(config: FirebaseConfig): SchoolBackend {
       const c = await me(); const { fs } = c.m;
       const grades = await api.listGrades(testId);
       const b = fs.writeBatch(c.db);
-      for (const g of grades) b.update(fs.doc(c.db, 'attempts', `${testId}_${g.uid}`), { score: Math.max(0, Math.min(g.max, g.score + (g.teacherAdjust ?? 0))), max: g.max, taskResults: g.tasks });
+      for (const g of grades) b.update(fs.doc(c.db, 'attempts', `${testId}_${g.uid}`), { score: Math.max(0, Math.min(g.max, g.score + (g.teacherAdjust ?? 0))), max: g.max, taskResults: g.tasks, teacherAdjust: g.teacherAdjust ?? 0, comment: g.comment ?? '' });
       b.update(fs.doc(c.db, 'tests', testId), { resultsReleased: true });
       await b.commit();
     },

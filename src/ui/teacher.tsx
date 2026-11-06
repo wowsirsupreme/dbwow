@@ -1,13 +1,15 @@
 'use client';
 // Teacher dashboard: classes, test builder, live monitor, results and student analytics.
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle2, ClipboardList, Copy, Download, Eye, Plus, RefreshCw, Trash2, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle2, ClipboardList, Copy, Download, Eye, Plus, Printer, RefreshCw, Trash2, Users, Wand2, XCircle } from 'lucide-react';
 import { cloudMessage } from '@/cloud/backend';
 import { getBackend, useCloud } from '@/cloud/sync';
 import { newCode, today, zeroCounters, type Attempt, type AttemptEvent, type ClassInfo, type DayStats, type Member, type StoredGrade, type TestKey, type TestPublic } from '@/cloud/school';
 import { describeCheck, grade, type Check, type ExamTask, type GradeResult } from '@/exam/checks';
 import { WowProject, uid } from '@/engine/project';
-import { SAMPLE_LIST } from '@/engine/samples';
+import { SAMPLE_LIST, buildSample, type SampleId } from '@/engine/samples';
+import { LEVELS, readyTest, startDatabase, taskLibrary, type LevelId, type LibTask } from '@/exam/library';
+import { pdfBytes, resultsPdf, type PrintStudent } from '@/exam/print';
 import { saveProject } from '@/engine/persistence';
 import { downloadBytes } from '@/engine/persistence';
 import type { DataType } from '@/engine/types';
@@ -43,7 +45,7 @@ export function TeacherDashboard() {
         {sec.k === 'tests' && <TestsList tests={tests} classes={classes} go={setSec} reload={reload} />}
         {sec.k === 'edit' && <TestEditor id={sec.id} classes={classes} done={(id) => { reload(); setSec(id ? { k: 'tests' } : { k: 'tests' }); }} />}
         {sec.k === 'monitor' && <Monitor test={tests.find((t) => t.id === sec.id)} go={setSec} />}
-        {sec.k === 'results' && <Results test={tests.find((t) => t.id === sec.id)} go={setSec} reload={reload} />}
+        {sec.k === 'results' && <Results test={tests.find((t) => t.id === sec.id)} classes={classes} go={setSec} reload={reload} />}
         {sec.k === 'students' && <StudentsView classes={classes} tests={tests} />}
       </div>
     </div>
@@ -126,7 +128,7 @@ type DraftTask = ExamTask;
 const CHECK_KINDS: { kind: Check['kind']; label: string }[] = [
   { kind: 'table', label: 'Table exists' }, { kind: 'field', label: 'Field exists (and data type)' }, { kind: 'primaryKey', label: 'Primary key' },
   { kind: 'records', label: 'Number of records' }, { kind: 'recordExists', label: 'A record with a value' }, { kind: 'validation', label: 'Validation rule' },
-  { kind: 'relationship', label: 'Relationship' }, { kind: 'queryResult', label: 'Query gives the right rows (answer SQL)' }, { kind: 'queryUses', label: 'Query uses a feature (e.g. GROUP BY)' },
+  { kind: 'relationship', label: 'Relationship' }, { kind: 'queryResult', label: 'Query gives the right rows (answer SQL)' }, { kind: 'queryUses', label: 'Query uses a feature (e.g. GROUP BY)' }, { kind: 'parameter', label: 'Parameter query gives the right rows' },
   { kind: 'form', label: 'Form' }, { kind: 'report', label: 'Report (grouping, totals)' }, { kind: 'sql', label: 'Custom SQL check (advanced)' },
 ];
 const TYPES: DataType[] = ['Short Text', 'Long Text', 'Number', 'Date/Time', 'Currency', 'AutoNumber', 'Yes/No', 'Hyperlink', 'Attachment', 'Calculated'];
@@ -141,13 +143,14 @@ function blankCheck(kind: Check['kind']): Check {
     case 'relationship': return { kind, primary: '', related: '', enforce: true };
     case 'queryResult': return { kind, sql: '' };
     case 'queryUses': return { kind, contains: 'GROUP BY' };
+    case 'parameter': return { kind, sql: '', value: '' };
     case 'form': return { kind };
     case 'report': return { kind };
     case 'sql': return { kind, sql: '', label: '' };
   }
 }
-/** Ready-made IGCSE-style tasks (Student database). */
-const BANK: { group: string; tasks: Omit<DraftTask, 'id'>[] }[] = [
+/** Tasks for building a database from a blank start. */
+const BLANK_BANK: { group: string; tasks: Omit<DraftTask, 'id'>[] }[] = [
   { group: 'Create a Students table', tasks: [
     { text: 'Create a table called Students.', marks: 1, check: { kind: 'table', table: 'Students' } },
     { text: 'Add StudentID as an AutoNumber field and make it the primary key.', marks: 2, check: { kind: 'primaryKey', table: 'Students', fields: ['StudentID'] } },
@@ -180,7 +183,11 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
   const [loaded, setLoaded] = useState(!id);
   const [t, setT] = useState<TestPublic>(() => ({ id: '', title: '', instructions: '', classId: classes[0]?.id ?? null, durationMin: 45, status: 'draft', code: newCode(), tasks: [], start: { kind: 'blank' }, settings: { requireFullscreen: true, allowLearning: false }, ownerUid: user.uid, ownerName: user.name, created: new Date().toISOString(), resultsReleased: false }));
   const [tasks, setTasks] = useState<DraftTask[]>([]);
-  const [startFrom, setStartFrom] = useState<'keep' | 'current'>('keep');
+  const [startFrom, setStartFrom] = useState<'keep' | 'current' | 'ready'>('keep');
+  const [readyBytes, setReadyBytes] = useState<Uint8Array | null>(null);
+  const [solvers, setSolvers] = useState<Record<string, LibTask['solve']>>({});
+  const [model, setModel] = useState<WowProject | null>(null);
+  const [making, setMaking] = useState(false);
   const [preview, setPreview] = useState<GradeResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -194,6 +201,49 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
   if (!loaded) return <p className="muted">Loading…</p>;
   const setTask = (i: number, patch: Partial<DraftTask>) => setTasks(tasks.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const marks = tasks.reduce((s, x) => s + x.marks, 0);
+  const useLib = (lib: LibTask[], sample: SampleId, start: WowProject | null) => {
+    setSolvers((old) => ({ ...old, ...Object.fromEntries(lib.map((x) => [x.id, x.solve])) }));
+    if (start) {
+      const b = start.db.export(); setReadyBytes(b); setStartFrom('ready');
+      setT((cur) => ({ ...cur, start: { kind: 'file', name: `${SAMPLE_LIST.find((x) => x.id === sample)!.name} (without queries, forms and reports)`, size: b.length } }));
+    }
+    setModel(null); setPreview(null);
+    return lib.map(({ id: tid, text, marks: m, check }) => ({ id: tid, text, marks: m, check }));
+  };
+  const pickReady = async () => {
+    const pick = await openDialog<{ sample: SampleId; level: LevelId }>('Ready-made tests', (close) => <ReadyPicker close={close} />, 680);
+    if (!pick) return;
+    if (tasks.length && !(await confirmBox('Replace the tasks in this test with the ready-made test?'))) return;
+    const r = await readyTest(pick.sample, pick.level);
+    const list = useLib(r.tasks, pick.sample, r.start);
+    setT((cur) => ({ ...cur, title: r.title, instructions: r.instructions, durationMin: r.durationMin }));
+    setTasks(list);
+  };
+  /** The starting database as bytes, whichever kind of start the test uses. */
+  const startBytes = async (): Promise<Uint8Array | null> => {
+    if (t.start.kind === 'blank') return (await WowProject.create(t.title || 'Model answer')).db.export();
+    if (t.start.kind === 'sample') return (await buildSample(t.start.sample as SampleId)).db.export();
+    if (startFrom === 'ready') return readyBytes;
+    if (startFrom === 'current') return project?.db.export() ?? null;
+    return id ? school.loadTestStart(id) : null;
+  };
+  const buildModel = async () => {
+    setErr(null); setMaking(true);
+    try {
+      const b = await startBytes(); if (!b) throw new Error('The starting database is not available.');
+      const m = await WowProject.open(b);
+      const missing: number[] = [];
+      tasks.forEach((x, i) => { const f = solvers[x.id]; if (f) { try { f(m); } catch { missing.push(i + 1); } } else missing.push(i + 1); });
+      setModel(m); setPreview(grade(m, tasks));
+      if (missing.length) setErr(`No model answer for task${missing.length > 1 ? 's' : ''} ${missing.join(', ')} (tasks you wrote or changed yourself). Open the model answer, complete ${missing.length > 1 ? 'them' : 'it'}, then try the key again.`);
+    } catch (e) { setErr((e as Error).message); } finally { setMaking(false); }
+  };
+  const openModel = async () => {
+    if (!model) return;
+    const mid = 'model-' + uid('m'); const b = model.db.export();
+    await saveProject({ id: mid, name: `${t.title || 'Test'} (model answer)`, bytes: b, modified: new Date().toISOString(), size: b.length });
+    useApp.getState().setProject(model, mid);
+  };
   const save = async () => {
     setErr(null);
     if (!t.title.trim()) { setErr('Give the test a title.'); return; }
@@ -207,6 +257,7 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
         if (!project) throw new Error('Open the database students should start from, then save again.');
         bytes = project.db.export(); start = { kind: 'file', name: project.name, size: bytes.length };
       }
+      if (t.start.kind === 'file' && startFrom === 'ready' && readyBytes) { bytes = readyBytes; start = { kind: 'file', name: t.start.name, size: bytes.length }; }
       const pub: TestPublic = { ...t, start, tasks: tasks.map(({ id: tid, text, marks: m }) => ({ id: tid, text: text.trim(), marks: m })) };
       const key: TestKey = { tasks: tasks.map(({ id: tid, check }) => ({ id: tid, check })) };
       const newId = await school.saveTest(pub, key, bytes);
@@ -215,7 +266,10 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
   };
   return (
     <div style={{ maxWidth: 980 }}>
-      <div className="tz-head"><h1>{id ? 'Edit test' : 'New practical test'}</h1></div>
+      <div className="tz-head"><h1>{id ? 'Edit test' : 'New practical test'}</h1>
+        <button className="btn btn-primary" onClick={() => void pickReady()} data-testid="ready-made"><Wand2 size={13} /> Use a ready-made test</button>
+      </div>
+      {!id && !tasks.length && <p className="small muted mb-2">Start from a ready-made test for any of the {SAMPLE_LIST.length} sample databases (Core, Extended or Full paper), or add your own tasks below.</p>}
       <div className="tz-form">
         <label>Title<input value={t.title} onChange={(e) => setT({ ...t, title: e.target.value })} aria-label="Test title" /></label>
         <label>Class<select value={t.classId ?? ''} onChange={(e) => setT({ ...t, classId: e.target.value || null })} aria-label="Class"><option value="">Any student with the code</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
@@ -223,10 +277,10 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
         <label>Test code<input value={t.code} onChange={(e) => setT({ ...t, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })} aria-label="Code" /></label>
         <label className="span2">Instructions for students<textarea rows={3} value={t.instructions} onChange={(e) => setT({ ...t, instructions: e.target.value })} aria-label="Instructions" /></label>
         <label>Students start with
-          <select value={t.start.kind === 'sample' ? `sample:${t.start.sample}` : t.start.kind} onChange={(e) => { const v = e.target.value; setT({ ...t, start: v === 'blank' ? { kind: 'blank' } : v === 'file' ? { kind: 'file', name: project?.name ?? '', size: 0 } : { kind: 'sample', sample: v.slice(7) } }); if (v === 'file') setStartFrom('current'); }} aria-label="Starting database">
+          <select value={t.start.kind === 'sample' ? `sample:${t.start.sample}` : t.start.kind} onChange={(e) => { const v = e.target.value; setT({ ...t, start: v === 'blank' ? { kind: 'blank' } : v === 'file' ? { kind: 'file', name: project?.name ?? '', size: 0 } : { kind: 'sample', sample: v.slice(7) } }); if (v === 'file') setStartFrom('current'); else if (startFrom === 'ready') setStartFrom('keep'); }} aria-label="Starting database">
             <option value="blank">A blank database</option>
             {SAMPLE_LIST.map((s) => <option key={s.id} value={`sample:${s.id}`}>The {s.name} sample</option>)}
-            <option value="file">The database I have open now{project ? ` (${project.name})` : ''}</option>
+            <option value="file">{startFrom === 'ready' ? t.start.kind === 'file' && t.start.name : `The database I have open now${project ? ` (${project.name})` : ''}`}</option>
           </select>
         </label>
         <div className="tz-checks">
@@ -234,13 +288,17 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
           <label className="chk"><input type="checkbox" checked={t.settings.allowLearning} onChange={(e) => setT({ ...t, settings: { ...t.settings, allowLearning: e.target.checked } })} /> Allow the Learning Centre during the test</label>
         </div>
       </div>
+      {startFrom === 'ready' && t.start.kind === 'file' && <p className="small muted mt-1">Students start with: {t.start.name}. It is saved with the test when you press Save test.</p>}
       {t.start.kind === 'file' && t.start.size > 0 && startFrom === 'keep' && <p className="small muted mt-1">Saved starting database: {t.start.name} ({Math.round(t.start.size / 1024)} KB). <button className="link" onClick={() => setStartFrom('current')}>Replace it with the database open now</button></p>}
 
       <div className="tz-head mt-3"><h2 style={{ margin: 0 }}>Tasks <span className="muted small">{tasks.length} tasks · {marks} marks</span></h2>
         <button className="btn" data-testid="add-task" onClick={() => setTasks([...tasks, { id: uid('task'), text: '', marks: 1, check: blankCheck('table') }])}><Plus size={13} /> Add task</button>
         <button className="btn" onClick={async () => {
-          const pick = await openDialog<Omit<DraftTask, 'id'>[]>('Task bank', (close) => <TaskBank close={close} />, 640);
-          if (pick?.length) setTasks([...tasks, ...pick.map((x) => ({ ...x, id: uid('task') }))]);
+          const defSample = t.start.kind === 'sample' ? t.start.sample : (t.start.kind === 'file' && SAMPLE_LIST.find((x) => t.start.kind === 'file' && t.start.name.startsWith(x.name))?.id) || (t.start.kind === 'blank' ? 'blank' : 'school');
+          const pick = await openDialog<BankPick>('Task bank', (close) => <TaskBank close={close} initial={defSample as SampleId | 'blank'} canSetStart={t.start.kind === 'blank' && !tasks.length} />, 720);
+          if (!pick?.tasks.length) return;
+          if (pick.lib) setTasks([...tasks, ...useLib(pick.tasks as LibTask[], pick.sample as SampleId, pick.setStart ? pick.start : null)]);
+          else setTasks([...tasks, ...pick.tasks.map((x) => ({ ...x, id: uid('task') }))]);
         }} data-testid="task-bank">Add from task bank</button>
       </div>
       {tasks.map((x, i) => (
@@ -264,30 +322,77 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
       <div className="flex gap-2 mt-3" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="btn btn-primary" onClick={() => void save()} disabled={saving} data-testid="save-test">{saving ? 'Saving…' : 'Save test'}</button>
         <button className="btn" onClick={() => done(null)}>Cancel</button>
-        <button className="btn" disabled={!project || !tasks.length} title={project ? `Mark the database open now (${project.name}) with this key` : 'Open a database first'} onClick={() => setPreview(grade(project!, tasks))} data-testid="try-key">Try the marking key on {project ? `"${project.name}"` : 'the open database'}</button>
-        {preview && <span className="small"><b>{preview.score} / {preview.max}</b> on {project?.name}. Build a model answer database and try the key on it before opening the test.</span>}
+        <button className="btn" disabled={!tasks.length || making} title="Run the model answers on the starting database and mark the result" onClick={() => void buildModel()} data-testid="build-model">{making ? 'Building…' : 'Build a model answer and try the key'}</button>
+        <button className="btn" disabled={!project || !tasks.length} title={project ? `Mark the database open now (${project.name}) with this key` : 'Open a database first'} onClick={() => { setModel(null); setPreview(grade(project!, tasks)); }} data-testid="try-key">Try the key on {project ? `"${project.name}"` : 'the open database'}</button>
+        {preview && <span className="small" data-testid="key-preview"><b>{preview.score} / {preview.max}</b> on {model ? 'the model answer' : project?.name}.</span>}
+        {model && <button className="link small" onClick={() => void openModel()}>Open the model answer</button>}
       </div>
       {err && <div className="banner err mt-2">{err}</div>}
     </div>
   );
 }
 
-function TaskBank({ close }: { close: (v: Omit<DraftTask, 'id'>[] | null) => void }) {
+interface BankPick { tasks: (LibTask | Omit<DraftTask, 'id'>)[]; lib: boolean; sample: SampleId | 'blank'; setStart: boolean; start: WowProject | null; }
+function TaskBank({ close, initial, canSetStart }: { close: (v: BankPick | null) => void; initial: SampleId | 'blank'; canSetStart: boolean }) {
+  const [sample, setSample] = useState<SampleId | 'blank'>(initial);
+  const [lib, setLib] = useState<{ start: WowProject; tasks: LibTask[] } | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
-  const all = BANK.flatMap((g, gi) => g.tasks.map((t, ti) => ({ k: `${gi}:${ti}`, g: g.group, t })));
+  const [setStart, setSetStart] = useState(canSetStart);
+  useEffect(() => {
+    setSel(new Set()); setLib(null);
+    if (sample === 'blank') return;
+    let live = true;
+    void startDatabase(sample).then((p) => { if (live) setLib({ start: p, tasks: taskLibrary(sample, p, Math.floor(Math.random() * 1e9)) }); });
+    return () => { live = false; };
+  }, [sample]);
+  const groups: { group: string; items: { k: string; text: string; marks: number; check: Check }[] }[] = sample === 'blank'
+    ? BLANK_BANK.map((g, gi) => ({ group: g.group, items: g.tasks.map((t, ti) => ({ k: `${gi}:${ti}`, ...t })) }))
+    : [...new Set((lib?.tasks ?? []).map((t) => t.group))].map((g) => ({ group: g, items: lib!.tasks.filter((t) => t.group === g).map((t) => ({ k: t.id, text: t.text, marks: t.marks, check: t.check })) }));
+  const done = () => {
+    if (sample === 'blank') close({ tasks: groups.flatMap((g) => g.items).filter((x) => sel.has(x.k)).map(({ text, marks, check }) => ({ text, marks, check })), lib: false, sample, setStart: false, start: null });
+    else close({ tasks: lib!.tasks.filter((x) => sel.has(x.id)), lib: true, sample, setStart, start: lib!.start });
+  };
   return (
     <div>
-      <p className="small muted mb-2">Tick tasks to add. You can change wording, marks and checks afterwards.</p>
-      <div style={{ maxHeight: '55vh', overflow: 'auto' }}>
-        {BANK.map((g, gi) => (
-          <div key={gi} className="mb-2"><b className="small">{g.group}</b>
-            {g.tasks.map((t, ti) => { const k = `${gi}:${ti}`; return (
-              <label key={k} className="chk" style={{ display: 'flex', gap: 6, padding: '3px 0' }}><input type="checkbox" checked={sel.has(k)} onChange={(e) => { const n = new Set(sel); if (e.target.checked) n.add(k); else n.delete(k); setSel(n); }} /><span>{t.text} <span className="muted small">[{t.marks}] · {describeCheck(t.check)}</span></span></label>
-            ); })}
+      <div className="flex gap-2 mb-2" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <label className="small">Database<select value={sample} onChange={(e) => setSample(e.target.value as SampleId | 'blank')} aria-label="Bank database" style={{ marginLeft: 6 }}>
+          <option value="blank">Blank database (build it from scratch)</option>
+          {SAMPLE_LIST.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+        </select></label>
+        {sample !== 'blank' && <button className="link small" onClick={() => setSel(new Set(lib?.tasks.map((x) => x.id)))}>Tick all</button>}
+      </div>
+      <p className="small muted mb-2">{sample === 'blank' ? 'Tick tasks to add.' : 'Values (towns, prices, dates, letters) are picked from the data each time you open the bank.'} You can change wording, marks and checks afterwards.</p>
+      <div style={{ maxHeight: '52vh', overflow: 'auto' }}>
+        {sample !== 'blank' && !lib && <p className="muted">Preparing tasks…</p>}
+        {groups.map((g) => (
+          <div key={g.group} className="mb-2"><b className="small">{g.group}</b>
+            {g.items.map((t) => (
+              <label key={t.k} className="chk" style={{ display: 'flex', gap: 6, padding: '3px 0' }}><input type="checkbox" data-testid="bank-task" checked={sel.has(t.k)} onChange={(e) => { const n = new Set(sel); if (e.target.checked) n.add(t.k); else n.delete(t.k); setSel(n); }} /><span>{t.text} <span className="muted small">[{t.marks}] · {describeCheck(t.check)}</span></span></label>
+            ))}
           </div>
         ))}
       </div>
-      <div className="dlg-buttons"><button className="btn btn-primary" disabled={!sel.size} onClick={() => close(all.filter((x) => sel.has(x.k)).map((x) => x.t))}>Add {sel.size || ''} task{sel.size === 1 ? '' : 's'}</button><button className="btn" onClick={() => close(null)}>Cancel</button></div>
+      {sample !== 'blank' && <label className="chk small mt-2"><input type="checkbox" checked={setStart} onChange={(e) => setSetStart(e.target.checked)} /> Students start with this database (its saved queries, forms and reports removed)</label>}
+      <div className="dlg-buttons"><button className="btn btn-primary" disabled={!sel.size} onClick={done} data-testid="bank-add">Add {sel.size || ''} task{sel.size === 1 ? '' : 's'}</button><button className="btn" onClick={() => close(null)}>Cancel</button></div>
+    </div>
+  );
+}
+
+function ReadyPicker({ close }: { close: (v: { sample: SampleId; level: LevelId } | null) => void }) {
+  const [sample, setSample] = useState<SampleId>('school');
+  const [level, setLevel] = useState<LevelId>('core');
+  const L = LEVELS.find((x) => x.id === level)!;
+  return (
+    <div>
+      <p className="small muted mb-2">Every ready-made test starts students in a copy of the sample (its saved queries, forms and reports removed) and comes with a marking key and model answers. Values such as towns, prices and dates are picked from the data, so each test you make is a little different.</p>
+      <div className="ready-grid">
+        {SAMPLE_LIST.map((x) => <button key={x.id} className={'ready-db' + (x.id === sample ? ' on' : '')} onClick={() => setSample(x.id)} data-testid={`ready-${x.id}`}><b>{x.name}</b><span className="small muted">{x.description}</span></button>)}
+      </div>
+      <div className="flex gap-2 mt-2" style={{ flexWrap: 'wrap' }}>
+        {LEVELS.map((x) => <label key={x.id} className="chk"><input type="radio" name="lvl" checked={level === x.id} onChange={() => setLevel(x.id)} /> {x.name} ({x.keys.length} tasks, {x.minutes} min)</label>)}
+      </div>
+      <p className="small mt-1">{L.about}</p>
+      <div className="dlg-buttons"><button className="btn btn-primary" onClick={() => close({ sample, level })} data-testid="ready-use">Use this test</button><button className="btn" onClick={() => close(null)}>Cancel</button></div>
     </div>
   );
 }
@@ -308,6 +413,7 @@ function CheckEditor({ check, onChange }: { check: Check; onChange: (c: Check) =
       {check.kind === 'relationship' && <>{txt('primary', 'One side (primary table)')}{txt('related', 'Many side (related table)')}{box('enforce', 'Integrity enforced')}{box('cascadeUpdate', 'Cascade update')}{box('cascadeDelete', 'Cascade delete')}</>}
       {check.kind === 'queryResult' && <><label className="small" style={{ flex: 1, minWidth: 260 }}>Answer SQL (run on the student&apos;s own data)<textarea rows={2} className="mono" value={check.sql} onChange={(e) => set({ sql: e.target.value })} aria-label="Answer SQL" /></label>{txt('query', 'Query name (optional)')}{box('ordered', 'Order matters')}</>}
       {check.kind === 'queryUses' && <>{txt('contains', 'SQL must contain')}{txt('query', 'Query name (optional)')}</>}
+      {check.kind === 'parameter' && <><label className="small" style={{ flex: 1, minWidth: 260 }}>Answer SQL (with the value written in)<textarea rows={2} className="mono" value={check.sql} onChange={(e) => set({ sql: e.target.value })} aria-label="Answer SQL" /></label>{txt('value', 'Value to enter', 100)}{txt('query', 'Query name (optional)')}</>}
       {check.kind === 'form' && <>{txt('source', 'Based on (optional)')}{txt('name', 'Form name (optional)')}<label className="small">Must show fields<input style={{ width: 180 }} value={(check.fields ?? []).join(', ')} onChange={(e) => set({ fields: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} /></label></>}
       {check.kind === 'report' && <>{txt('source', 'Based on (optional)')}{txt('groupField', 'Grouped on (optional)')}{box('total', 'Has a total in a footer')}</>}
       {check.kind === 'sql' && <><label className="small" style={{ flex: 1, minWidth: 260 }}>SQL that returns 1 when met<textarea rows={2} className="mono" value={check.sql} onChange={(e) => set({ sql: e.target.value })} /></label>{txt('label', 'Describe it', 200)}</>}
@@ -415,7 +521,7 @@ async function attemptDetail(a: Attempt, test: TestPublic) {
 }
 
 // ---------------------------------------------------------------- results
-function Results({ test, go, reload }: { test?: TestPublic; go: (s: Section) => void; reload: () => void }) {
+function Results({ test, classes, go, reload }: { test?: TestPublic; classes: ClassInfo[]; go: (s: Section) => void; reload: () => void }) {
   const school = getBackend()!.school!;
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [grades, setGrades] = useState<Record<string, StoredGrade>>({});
@@ -455,11 +561,25 @@ function Results({ test, go, reload }: { test?: TestPublic; go: (s: Section) => 
     const text = [head, ...lines].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     downloadBytes(new TextEncoder().encode(text), `${test.title} results.csv`, 'text/csv');
   };
+  const printable = (list: Attempt[]): PrintStudent[] => list.map((a) => {
+    const g = grades[a.uid];
+    return {
+      name: a.name, email: a.email, status: a.status === 'submitted' ? 'handed in' : 'still working', submittedAt: a.submittedAt, autoSubmitted: a.autoSubmitted,
+      counters: { ...zeroCounters(), ...a.counters }, score: g ? g.score : null, max, adjust: g?.teacherAdjust, comment: g?.comment,
+      tasks: test.tasks.map((t) => { const r = g?.tasks.find((x) => x.id === t.id); return { text: t.text, marks: r?.marks ?? 0, max: t.marks, ok: r ? r.ok : null, reason: r?.reason ?? '' }; }),
+    };
+  });
+  const print = (list: Attempt[], opts: { sheet: boolean; pages: boolean }, file: string) => {
+    const doc = resultsPdf(test, printable(list), { ...opts, className: classes.find((c) => c.id === test.classId)?.name });
+    downloadBytes(pdfBytes(doc), `${test.title} ${file}.pdf`, 'application/pdf');
+  };
   return (
     <div>
       <div className="tz-head"><h1>{test.title}: results</h1>
         <button className="btn btn-primary" onClick={() => void markAll()} disabled={busy || !attempts.length} data-testid="mark-all">{busy ? 'Marking…' : 'Mark all'}</button>
         <button className="btn" onClick={csv} disabled={!rows.length}><Download size={13} /> CSV</button>
+        <button className="btn" onClick={() => print(rows, { sheet: true, pages: false }, 'mark sheet')} disabled={!rows.length} data-testid="print-sheet" title="Class mark sheet: every student's mark for each checkpoint"><Printer size={13} /> Mark sheet</button>
+        <button className="btn" onClick={() => print(rows, { sheet: true, pages: true }, 'results')} disabled={!rows.length} data-testid="print-all" title="Mark sheet followed by one page per student with every checkpoint and the reason"><Printer size={13} /> Mark sheet + student pages</button>
         <button className="btn" onClick={() => go({ k: 'monitor', id: test.id })}>Live monitor</button>
         {test.resultsReleased ? <span className="tag ok">Released to students</span> : <button className="btn" disabled={!marked.length} data-testid="release" onClick={async () => { if (await confirmBox(`Release marks for ${marked.length} student(s)? They will see their score and the reason for each task.`)) { await school.releaseResults(test.id); reload(); setMsg('Results released.'); } }}>Release results</button>}
       </div>
@@ -468,7 +588,7 @@ function Results({ test, go, reload }: { test?: TestPublic; go: (s: Section) => 
       <div className="tz-scroll"><table className="tz-table" data-testid="results-table"><thead><tr><th>Student</th><th>Score</th>{test.tasks.map((t, i) => <th key={t.id} title={t.text}>T{i + 1}<div className="small muted">/{t.marks}</div></th>)}<th>Concerns</th><th>Adjust</th><th>Comment</th></tr></thead><tbody>
         {rows.map((a) => { const g = grades[a.uid]; const flags = concern({ ...zeroCounters(), ...a.counters }); return (
           <tr key={a.id} data-testid="result-row">
-            <td>{a.name}<div className="small muted">{a.status === 'submitted' ? 'Handed in' : 'Still working'}</div></td>
+            <td>{a.name} <button className="icon-btn" title={`Print ${a.name}'s result`} onClick={() => print([a], { sheet: false, pages: true }, a.name)} data-testid="print-one"><Printer size={12} /></button><div className="small muted">{a.status === 'submitted' ? 'Handed in' : 'Still working'}</div></td>
             <td><b data-testid="result-score">{g ? `${finalOf(g)} / ${max}` : '-'}</b></td>
             {test.tasks.map((t) => { const r = g?.tasks.find((x) => x.id === t.id); return <td key={t.id} title={r?.reason}>{r ? (r.ok ? <CheckCircle2 size={15} color="#3c8d40" aria-label="met" /> : <XCircle size={15} color="#a4262c" aria-label="not met" />) : ''}</td>; })}
             <td className="small">{flags.length ? <span className="warn"><AlertTriangle size={12} style={{ display: 'inline' }} /> {flags.join(', ')}</span> : <span className="muted">None</span>}</td>

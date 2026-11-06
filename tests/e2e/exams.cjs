@@ -162,6 +162,9 @@ async function step(name, fn) {
     await tp.locator('h1').click();
     await tp.waitForTimeout(400);
     await tp.screenshot({ path: path.join(OUT, 'x5-results.png') });
+    const [sheet] = await Promise.all([tp.waitForEvent('download'), tp.click('[data-testid="print-all"]')]);
+    assert.match(sheet.suggestedFilename(), /results\.pdf$/);
+    assert.equal(fs.readFileSync(await sheet.path()).subarray(0, 5).toString(), '%PDF-');
     await tp.click('[data-testid="release"]');
     await tp.click('.dlg button:text-is("Yes")');
     await tp.waitForSelector('text=Released to students');
@@ -170,6 +173,11 @@ async function step(name, fn) {
     await page.click('[data-testid="bs-tests"]');
     await page.waitForSelector('[data-testid="my-score"]');
     assert.equal((await page.locator('[data-testid="my-score"]').textContent()).trim(), '5 / 6');
+    await page.locator('[data-testid="my-result"] b').first().click();
+    await page.waitForSelector('text=Teacher\'s comment: Good work');
+    const [mine] = await Promise.all([page.waitForEvent('download'), page.click('[data-testid="print-my-result"]')]);
+    assert.match(mine.suggestedFilename(), /result\.pdf$/);
+    assert.equal(fs.readFileSync(await mine.path()).subarray(0, 5).toString(), '%PDF-');
   });
 
   await step('A second student reloads mid-test and carries on with the same deadline', async () => {
@@ -203,6 +211,36 @@ async function step(name, fn) {
     await row.locator('button:has-text("Details")').click();
     await tp.waitForSelector('[data-testid="student-detail"] svg');
     await tp.screenshot({ path: path.join(OUT, 'x6-student-progress.png') });
+  });
+
+  await step('Teacher: a ready-made test for another sample, model answer earns full marks, more tasks from that database\'s bank', async () => {
+    const tp = T.page;
+    await tp.click('.tz-nav:has-text("Tests")');
+    await tp.click('[data-testid="new-test"]');
+    await tp.click('[data-testid="ready-made"]');
+    await tp.click('[data-testid="ready-farm"]');
+    await tp.locator('.dlg label.chk').filter({ hasText: 'Extended' }).locator('input').check();
+    await tp.screenshot({ path: path.join(OUT, 'x7-ready-made.png') });
+    await tp.click('[data-testid="ready-use"]');
+    await tp.waitForFunction(() => document.querySelectorAll('[data-testid="task-edit"]').length === 8);
+    assert.match(await tp.inputValue('input[aria-label="Test title"]'), /Farm Co-operative: Extended/);
+    await tp.click('[data-testid="build-model"]');
+    await tp.waitForSelector('[data-testid="key-preview"]');
+    assert.match(await tp.locator('[data-testid="key-preview"]').textContent(), /^20 \/ 20 on the model answer/);
+    await tp.click('[data-testid="task-bank"]');
+    await tp.waitForSelector('[data-testid="bank-task"]');
+    assert.equal(await tp.inputValue('select[aria-label="Bank database"]'), 'farm');
+    await tp.locator('[data-testid="bank-task"]').nth(0).check();
+    await tp.locator('[data-testid="bank-task"]').nth(4).check();
+    await tp.click('[data-testid="bank-add"]');
+    await tp.waitForFunction(() => document.querySelectorAll('[data-testid="task-edit"]').length === 10);
+    await tp.click('[data-testid="build-model"]');
+    await tp.waitForFunction(() => /^24 \/ 24/.test(document.querySelector('[data-testid="key-preview"]')?.textContent ?? ''));
+    await tp.click('[data-testid="save-test"]');
+    await tp.waitForFunction(() => document.querySelectorAll('[data-testid="test-row"]').length === 2);
+    const t = Object.values(cloud.dump('test/')).find((x) => /Farm/.test(x.title));
+    assert.equal(t.start.kind, 'file'); assert.ok(t.start.size > 10000, 'starting database saved with the test');
+    assert.equal(t.tasks.length, 10);
   });
 
   const fails = results.filter((r) => r[0] === 'FAIL').length;

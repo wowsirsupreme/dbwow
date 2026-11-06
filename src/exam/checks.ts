@@ -7,7 +7,7 @@
 // run inside a savepoint that is rolled back.
 import type { WowProject } from '@/engine/project';
 import type { DataType, FormDef, QueryDef, ReportDef } from '@/engine/types';
-import { runSql } from '@/engine/queries';
+import { queryParameters, runSql } from '@/engine/queries';
 
 export type Check =
   | { kind: 'table'; table: string }
@@ -19,6 +19,7 @@ export type Check =
   | { kind: 'relationship'; primary: string; related: string; enforce?: boolean; cascadeDelete?: boolean; cascadeUpdate?: boolean }
   | { kind: 'queryResult'; sql: string; query?: string; ordered?: boolean }
   | { kind: 'queryUses'; query?: string; contains: string }
+  | { kind: 'parameter'; sql: string; value: string; query?: string }
   | { kind: 'form'; source?: string; fields?: string[]; name?: string }
   | { kind: 'report'; source?: string; groupField?: string; total?: boolean; name?: string }
   | { kind: 'sql'; sql: string; label: string };
@@ -43,9 +44,9 @@ function norm(v: unknown): string {
   if (/^-?\d+(\.\d+)?$/.test(s)) return norm(Number(s));
   return s.toLowerCase();
 }
-function rowsOf(p: WowProject, sql: string): { columns: string[]; rows: string[][] } | string {
+function rowsOf(p: WowProject, sql: string, values: Record<string, unknown> = {}): { columns: string[]; rows: string[][] } | string {
   try {
-    const r = sandbox(p, () => runSql(p, sql));
+    const r = sandbox(p, () => runSql(p, sql, values));
     if (r.kind !== 'rows') return 'does not return rows';
     return { columns: r.columns, rows: r.rows.map((row) => row.map(norm)) };
   } catch (e) { return (e as Error).message; }
@@ -57,8 +58,10 @@ function sameRows(a: string[][], b: string[][], ordered: boolean) {
   const x = a.map(key).sort(), y = b.map(key).sort();
   return x.every((k, i) => k === y[i]);
 }
-/** Same rows whichever order the student put the columns in. */
-function sameRowsAnyColumnOrder(model: string[][], got: string[][], ordered: boolean) {
+/** Same rows whichever order the student put the columns in. When the answer
+ * is sorted, rows that tie on the sort column may come in any order: the
+ * student's rows must be the same set, with the sort column in the same order. */
+function sameRowsAnyColumnOrder(model: string[][], got: string[][], ordered: boolean, sortCol = -1) {
   if (!model.length || !got.length) return sameRows(model, got, ordered);
   const n = model[0].length;
   if (got[0].length !== n) return false;
@@ -71,7 +74,18 @@ function sameRowsAnyColumnOrder(model: string[][], got: string[][], ordered: boo
     if (j === undefined) return false;
     used.add(j); perm.push(j);
   }
-  return sameRows(model, got.map((r) => perm.map((j) => r[j])), ordered);
+  const mapped = got.map((r) => perm.map((j) => r[j]));
+  if (sameRows(model, mapped, ordered)) return true;
+  if (!ordered || sortCol < 0 || !sameRows(model, mapped, false)) return false;
+  return model.every((r, i) => r[sortCol] === mapped[i][sortCol]);
+}
+/** Index (in the answer's columns) of the first ORDER BY column, or -1. */
+function sortColumn(sql: string, columns: string[]): number {
+  const m = /\border\s+by\s+([^,;\n]+)/i.exec(sql); if (!m) return -1;
+  let term = m[1].trim().replace(/\s+(asc|desc)\s*$/i, '').trim();
+  if (/^\d+$/.test(term)) return Number(term) - 1;
+  term = term.replace(/^[\w"\[\]]+\./, '').replace(/^["[]|["\]]$/g, '').toLowerCase();
+  return columns.findIndex((c) => c.toLowerCase() === term || c.toLowerCase().endsWith('.' + term));
 }
 
 function queries(p: WowProject, name?: string): QueryDef[] {
@@ -142,10 +156,26 @@ export function runCheck(p: WowProject, c: Check): { ok: boolean; reason: string
       for (const x of cands) {
         const got = rowsOf(p, x.sql);
         if (typeof got === 'string') { closest ||= `${x.name}: ${got}`; continue; }
-        if (sameRowsAnyColumnOrder(model.rows, got.rows, ordered)) return pass(`${x.name} returns the expected ${model.rows.length} row(s).`);
+        if (sameRowsAnyColumnOrder(model.rows, got.rows, ordered, sortColumn(c.sql, model.columns))) return pass(`${x.name} returns the expected ${model.rows.length} row(s).`);
         closest ||= `${x.name} returns ${got.rows.length} row(s) × ${got.columns.length} column(s); expected ${model.rows.length} × ${model.columns.length}${ordered ? ', sorted' : ''}.`;
       }
       return fail(closest || 'No saved query returns the expected rows.');
+    }
+    case 'parameter': {
+      const model = rowsOf(p, c.sql);
+      if (typeof model === 'string') return fail(`The answer key could not run on this database (${model}).`);
+      const cands = queries(p, c.query).filter((x) => x.kind === 'select' && queryParameters(p, x.sql).length > 0);
+      if (!cands.length) return fail(c.query ? `${c.query} is not a parameter query (it never asks for a value).` : 'No saved query asks for a value when it runs.');
+      const ordered = /\border\s+by\b/i.test(c.sql);
+      let closest = '';
+      for (const x of cands) {
+        const vals = Object.fromEntries(queryParameters(p, x.sql).map((k) => [k, c.value]));
+        const got = rowsOf(p, x.sql, vals);
+        if (typeof got === 'string') { closest ||= `${x.name}: ${got}`; continue; }
+        if (sameRowsAnyColumnOrder(model.rows, got.rows, ordered, sortColumn(c.sql, model.columns))) return pass(`${x.name} asks for a value and, given "${c.value}", returns the expected ${model.rows.length} row(s).`);
+        closest ||= `${x.name}, given "${c.value}", returns ${got.rows.length} row(s); expected ${model.rows.length}.`;
+      }
+      return fail(closest);
     }
     case 'queryUses': {
       const cands = queries(p, c.query);
@@ -207,6 +237,7 @@ export function describeCheck(c: Check): string {
     case 'relationship': return `Relationship ${c.primary} → ${c.related}${c.enforce ? ', integrity enforced' : ''}${c.cascadeDelete ? ', cascade delete' : ''}${c.cascadeUpdate ? ', cascade update' : ''}`;
     case 'queryResult': return `A saved query${c.query ? ` named ${c.query}` : ''} returns the same rows as the answer SQL`;
     case 'queryUses': return `A saved query${c.query ? ` named ${c.query}` : ''} uses ${c.contains}`;
+    case 'parameter': return `A parameter query${c.query ? ` named ${c.query}` : ''}, given "${c.value}", returns the same rows as the answer SQL`;
     case 'form': return `A form${c.name ? ` named ${c.name}` : ''}${c.source ? ` based on ${c.source}` : ''}${c.fields?.length ? ` showing ${c.fields.join(', ')}` : ''}`;
     case 'report': return `A report${c.name ? ` named ${c.name}` : ''}${c.source ? ` based on ${c.source}` : ''}${c.groupField ? ` grouped on ${c.groupField}` : ''}${c.total ? ' with a total' : ''}`;
     case 'sql': return `Custom check: ${c.label}`;

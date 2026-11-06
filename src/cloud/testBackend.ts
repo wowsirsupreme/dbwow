@@ -131,7 +131,7 @@ export function createTestBackend(url: string): CloudBackend {
       await needTeacher();
       for (const g of await school.listGrades(testId)) {
         const a = await db.get<Attempt>(`attempt/${testId}_${g.uid}`);
-        if (a) await db.set(`attempt/${a.id}`, { ...a, score: Math.max(0, Math.min(g.max, g.score + (g.teacherAdjust ?? 0))), max: g.max, taskResults: g.tasks });
+        if (a) await db.set(`attempt/${a.id}`, { ...a, score: Math.max(0, Math.min(g.max, g.score + (g.teacherAdjust ?? 0))), max: g.max, taskResults: g.tasks, teacherAdjust: g.teacherAdjust ?? 0, comment: g.comment ?? '' });
       }
       const t = (await db.get<TestPublic>(`test/${testId}`))!; await db.set(`test/${testId}`, { ...t, resultsReleased: true });
     },

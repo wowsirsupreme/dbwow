@@ -2,7 +2,9 @@
 // Student side of practical tests: the Tests page in File, the test panel with
 // timer and tasks, and the full-screen prompt.
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Clock, Flag, Maximize, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardCheck, Clock, Flag, Maximize, Printer, Users, XCircle } from 'lucide-react';
+import { pdfBytes, studentResultPdf } from '@/exam/print';
+import { downloadBytes } from '@/engine/persistence';
 import { cloudMessage } from '@/cloud/backend';
 import { getBackend, useCloud } from '@/cloud/sync';
 import type { Attempt, ClassInfo, TestPublic } from '@/cloud/school';
@@ -124,6 +126,17 @@ export function TestsPage({ goAccount, openTeacher }: { goAccount: () => void; o
   const [attempts, setAttempts] = useState<(Attempt & { testTitle?: string })[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const school = getBackend()?.school;
+  const printMine = async (a: Attempt & { testTitle?: string }) => {
+    let t: TestPublic | null = null; try { t = (await school?.getTest(a.testId)) ?? null; } catch { /* wording not available */ }
+    const res = a.taskResults ?? [];
+    const raw = res.reduce((s, r) => s + r.marks, 0);
+    const doc = studentResultPdf(a.testTitle ?? t?.title ?? 'Practical test', {
+      name: a.name, email: a.email, status: 'handed in', submittedAt: a.submittedAt, autoSubmitted: a.autoSubmitted,
+      score: raw, max: a.max ?? res.reduce((s, r) => s + r.max, 0), adjust: a.teacherAdjust, comment: a.comment,
+      tasks: res.map((r, i) => ({ text: t?.tasks.find((x) => x.id === r.id)?.text ?? `Task ${i + 1}`, marks: r.marks, max: r.max, ok: r.ok, reason: r.reason })),
+    });
+    downloadBytes(pdfBytes(doc), `${a.testTitle ?? 'Test'} result.pdf`, 'application/pdf');
+  };
   const refresh = () => { if (!school || !user) return; void school.isTeacher().then(setTeacher).catch(() => undefined); void school.myClasses().then(setClasses).catch(() => undefined); void school.myAttempts().then(setAttempts).catch(() => setAttempts([])); };
   useEffect(refresh, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!available || !school) return <div><h1>Tests</h1><p>Practical tests are available on the online version of DBWOW, with an account.</p></div>;
@@ -149,6 +162,7 @@ export function TestsPage({ goAccount, openTeacher }: { goAccount: () => void; o
       </form>
 
       <h2>My results</h2>
+      <p className="small muted mb-2">Click a marked test to see each task. You can print the result sheet.</p>
       {attempts === null && <p className="muted">Loading…</p>}
       {attempts?.length === 0 && <p className="muted">No tests taken yet.</p>}
       {attempts?.map((a) => (
@@ -160,7 +174,11 @@ export function TestsPage({ goAccount, openTeacher }: { goAccount: () => void; o
           </div>
           {open === a.id && a.taskResults && <div className="mt-2">{a.taskResults.map((r, i) => (
             <div key={r.id} className="small flex gap-2" style={{ padding: '2px 0' }}>{r.ok ? <CheckCircle2 size={14} color="#3c8d40" /> : <XCircle size={14} color="#a4262c" />}<span style={{ flex: 1 }}>Task {i + 1}: {r.reason}</span><b>{r.marks}/{r.max}</b></div>
-          ))}</div>}
+          ))}
+            {a.teacherAdjust ? <div className="small mt-1">Teacher adjustment: {a.teacherAdjust > 0 ? '+' : ''}{a.teacherAdjust}</div> : null}
+            {a.comment ? <div className="small mt-1">Teacher&apos;s comment: {a.comment}</div> : null}
+            <button className="btn btn-sm mt-2" data-testid="print-my-result" onClick={() => void printMine(a)}><Printer size={13} /> Print or save as PDF</button>
+          </div>}
         </div>
       ))}
     </div>

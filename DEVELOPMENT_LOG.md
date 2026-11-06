@@ -1,5 +1,16 @@
 # DBWOW Development Log
 
+## 6 November 2026 — Release 0.6.0: ready-made tests for every sample, six new samples, printable results
+
+* Six new sample databases (fictional data, enforced relationships, example queries, forms and reports): Sports League, Hotel Bookings, Bus Transport, Cinema, Restaurant and Farm Co-operative. There are now eleven. Each new sample has beginner, intermediate and advanced exercises in the Learning Centre.
+* Ready-made practical tests for all eleven samples (src/exam/library.ts). Teacher > New test > Use a ready-made test: pick a database and a level: Core (8 tasks, 40 min: a new table with its key, a data type, a relationship, records, a validation rule, two queries, a form), Extended (8 tasks, 60 min: wildcard, date range, parameter query, join, totals, calculated field, update query, grouped report with totals) or Full paper (18 tasks, 90 min). Students start in a copy of the sample with its queries, forms and reports removed; that copy is saved with the test.
+* Values in the tasks (towns, prices, letters, months, the records an update query changes) are picked from the data each time a test is made, so two tests from the same sample differ. Expected results of update queries are worked out from the starting data.
+* The task bank now covers every sample (18 tasks each, grouped) as well as a blank database. Picking from a sample can also set the starting database.
+* Build a model answer and try the key: runs every task's model answer on the starting database and marks it. Tasks the teacher wrote are listed so they can be completed by hand in the model answer, which can be opened.
+* New marking check: parameter query (asks for a value; given the value, returns the right rows). Sorted answers now accept rows that tie on the sort field in any order.
+* Printable results (PDF, Times): Results > Mark sheet (every student's mark for each checkpoint, averages, and the list of checkpoints with how many students met each); Mark sheet + student pages (one page per student: each checkpoint's mark and the reason, adjustment, comment, monitoring summary); a print button for each student. Students can print their own result sheet from File > Tests > My results once results are released; the teacher's adjustment and comment are now released with the marks.
+* Tests: tests/library.test.ts (every sample builds; for every sample and three seeds the model answer earns full marks and the starting database none; exercises; PDFs). 89 unit tests. tests/e2e/exams.cjs now 7 steps (ready-made test, model answer, bank, PDF downloads). All browser suites pass on both builds (41 steps).
+
 ## 5 November 2026 — Release 0.5.0: practical tests, teacher dashboard, study analytics
 
 * Practical tests. Teachers build a test from tasks (wording + marks + a marking check), choose what students start with (blank database, a sample, or a database the teacher supplies), a time limit, a class, and whether full screen is required or the Learning Centre is allowed. Students need an account: File > Tests > enter the code. A rules screen, then a test panel with the tasks, a timer and flags; work autosaves to the teacher every 45 seconds; Submit, or automatic hand-in when time runs out; a reload carries on with the same deadline.

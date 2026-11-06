@@ -8,6 +8,8 @@
 import type { WowProject } from '@/engine/project';
 import type { FormDef, QueryDef, ReportDef, TableDef } from '@/engine/types';
 import { PRACTICALS, SAMPLE_EXERCISES, TOPICS, type Practical } from './content';
+import { SAMPLE_LIST } from '@/engine/samples';
+const SAMPLE_IDS = SAMPLE_LIST.map((x) => x.id);
 
 export type Tier = 'bronze' | 'silver' | 'gold' | 'platinum';
 export type Category = 'Tables' | 'Relationships' | 'Queries' | 'Forms' | 'Reports' | 'Data' | 'Learning';
@@ -107,7 +109,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'importer', title: 'Importer', how: 'Import data with the Import Wizard.', tier: 'silver', category: 'Data', learner: (s) => ev(s, 'import') },
   { id: 'exporter', title: 'Exporter', how: 'Export a table or query (CSV, Excel, JSON or SQL).', tier: 'bronze', category: 'Data', learner: (s) => ev(s, 'export') },
   { id: 'safe-keeper', title: 'Safe Keeper', how: 'Back up your database or download it as a .dbwow file.', tier: 'bronze', category: 'Data', learner: (s) => ev(s, 'backup') },
-  { id: 'explorer', title: 'Explorer', how: 'Open three different sample databases.', tier: 'bronze', category: 'Data', learner: (s) => ['sample:school', 'sample:library', 'sample:hospital', 'sample:shop', 'sample:employee'].filter((k) => ev(s, k)).length >= 3 },
+  { id: 'explorer', title: 'Explorer', how: 'Open three different sample databases.', tier: 'bronze', category: 'Data', learner: (s) => SAMPLE_IDS.filter((k) => ev(s, `sample:${k}`)).length >= 3 },
 
   // ---- Learning ----
   { id: 'first-step', title: 'First Step', how: 'Complete any practical step.', tier: 'bronze', category: 'Learning', learner: (s) => stepsDone(s) >= 1 },
