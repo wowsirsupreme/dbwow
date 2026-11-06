@@ -47,16 +47,16 @@ export function startCloud() {
   be.onUser((u) => {
     const was = useCloud.getState().user;
     useCloud.setState({ user: u, ready: true, status: u ? useCloud.getState().status : 'idle', message: null });
-    if (u && u.uid !== was?.uid) void onSignedIn();
+    if (u && !u.anonymous && u.uid !== was?.uid) void onSignedIn();
   });
   // upload the open database a few seconds after it changes
   useApp.subscribe((s, prev) => {
-    if (!useCloud.getState().user || !s.project || !s.projectId) return;
+    if (!useCloud.getState().user || useCloud.getState().user?.anonymous || !s.project || !s.projectId) return;
     if (s.version !== prev.version || s.projectId !== prev.projectId) scheduleDbUpload();
   });
   // keep learning progress in the account
   useLearning.subscribe((s, prev) => {
-    if (pullingProgress || s.progress === prev.progress || !useCloud.getState().user) return;
+    if (pullingProgress || s.progress === prev.progress || !useCloud.getState().user || useCloud.getState().user?.anonymous) return;
     if (progTimer) clearTimeout(progTimer);
     progTimer = setTimeout(() => { void be.saveProgress(useLearning.getState().progress).catch(() => undefined); }, 1500);
   });
@@ -86,7 +86,7 @@ export function scheduleDbUpload(delay = 3000) {
 export async function uploadNow(): Promise<CloudDbInfo | null> {
   if (dbTimer) { clearTimeout(dbTimer); dbTimer = null; }
   const be = getBackend(); const { project, projectId } = useApp.getState();
-  if (!be || !useCloud.getState().user || !project || !projectId) return null;
+  if (!be || !useCloud.getState().user || useCloud.getState().user?.anonymous || !project || !projectId) return null;
   if (/^(exam|review)-/.test(projectId)) return null;   // test databases go to the teacher, not the student's own list
   try {
     useCloud.setState({ status: 'saving' });

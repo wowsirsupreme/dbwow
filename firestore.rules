@@ -9,7 +9,8 @@ rules_version = '2';
 //   tests/{tid}                   signed-in users read the public part; teachers write
 //   tests/{tid}/key/main          marking key: teachers only
 //   tests/{tid}/grades/{uid}      marks: teachers only (copied into attempts on release)
-//   attempts/{tid_uid}            the student creates it while the test is open and updates
+//   attempts/{tid_uid}            the student (an account or a guest without one) creates it while
+//                                 the test is open and inside its start window, and updates
 //                                 only counters/status; marks can only be written by teachers
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -91,6 +92,9 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && aid == request.resource.data.testId + '_' + request.auth.uid
         && test().status == 'open'
+        // the start window set by the teacher (0 = no limit); 2 minutes' grace for clock differences
+        && (!('opensAtMs' in test()) || test().opensAtMs == 0 || request.time.toMillis() >= test().opensAtMs - 120000)
+        && (!('closesAtMs' in test()) || test().closesAtMs == 0 || request.time.toMillis() <= test().closesAtMs + 120000)
         && request.resource.data.status == 'in-progress'
         && !('score' in request.resource.data);
       allow update: if isTeacher() || (own() && studentFields()

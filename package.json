@@ -1,6 +1,6 @@
 {
   "name": "dbwow",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "private": true,
   "description": "DBWOW - an educational, Access-inspired relational database environment built on real SQLite (sql.js/WebAssembly).",
   "scripts": {

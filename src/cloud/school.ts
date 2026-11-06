@@ -33,7 +33,20 @@ export interface TestPublic {
   created: string;
   resultsReleased: boolean;
   paper?: PaperSettings;
+  /** Students may start only between these times (milliseconds since 1970). */
+  opensAtMs?: number;
+  closesAtMs?: number;
 }
+/** Whether students may start the test now. */
+export function startWindow(t: Pick<TestPublic, 'opensAtMs' | 'closesAtMs' | 'status'>, now = Date.now()): 'early' | 'open' | 'closed' {
+  if (t.status !== 'open') return 'closed';
+  if (t.opensAtMs && now < t.opensAtMs) return 'early';
+  if (t.closesAtMs && now > t.closesAtMs) return 'closed';
+  return 'open';
+}
+/** What a student gives before starting: full name, class details and the pledge. */
+export interface StartInfo { name: string; details: Record<string, string>; pledge: string; }
+export const PLEDGE = 'I will do this test on my own and honestly. I will not use notes, websites, AI tools, other programs or other people, I will not copy anyone\'s work or let anyone copy mine, and I will not try to get around the test\'s rules. I understand that my activity is recorded, and I take responsibility for any misconduct, which may cancel my result.';
 /** How printed papers look and what students fill in before starting. */
 export interface PaperSettings {
   school: string;               // school name printed at the top of every paper
@@ -80,6 +93,7 @@ export interface Attempt {
   max?: number;
   taskResults?: GradeResult['tasks'];
   details?: Record<string, string>; // what the student filled in before starting (Class, Section, ...)
+  pledge?: { text: string; at: string };
   teacherAdjust?: number;
   comment?: string;
 }
@@ -122,7 +136,7 @@ export interface SchoolBackend {
   setTestStatus(id: string, status: TestStatus): Promise<void>;
   deleteTest(id: string): Promise<void>;
 
-  startAttempt(t: TestPublic, details?: Record<string, string>): Promise<{ attempt: Attempt; resumed: boolean }>;
+  startAttempt(t: TestPublic, info?: StartInfo): Promise<{ attempt: Attempt; resumed: boolean }>;
   getAttempt(id: string): Promise<Attempt | null>;
   updateAttempt(id: string, patch: Partial<Pick<Attempt, 'counters' | 'lastSeen' | 'status' | 'submittedAt' | 'autoSubmitted'>>): Promise<void>;
   saveAttemptSnapshot(id: string, bytes: Uint8Array): Promise<void>;

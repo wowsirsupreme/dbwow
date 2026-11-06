@@ -21,8 +21,9 @@ interface ExamStore {
   lastSnapshot: string | null;
   error: string | null;
   flagged: Record<string, boolean>;
+  ready: boolean;   // the student pressed Submit and is confirming
 }
-export const useExam = create<ExamStore>(() => ({ session: null, counters: zeroCounters(), now: Date.now(), phase: 'idle', saving: false, lastSnapshot: null, error: null, flagged: {} }));
+export const useExam = create<ExamStore>(() => ({ session: null, counters: zeroCounters(), now: Date.now(), phase: 'idle', saving: false, lastSnapshot: null, error: null, flagged: {}, ready: false }));
 
 export const examActive = () => useExam.getState().phase === 'running' || useExam.getState().phase === 'submitting';
 export const remainingMs = () => { const s = useExam.getState(); return s.session ? Date.parse(s.session.attempt.deadline) - s.now : 0; };
@@ -58,7 +59,7 @@ export async function beginAttempt(test: TestPublic, attempt: Attempt, resumed: 
   useApp.getState().setBackstage(false);
   const counters = { ...zeroCounters(), ...attempt.counters };
   if (resumed) counters.reloads += 1;
-  useExam.setState({ session: { test, attempt, projectId }, counters, phase: 'running', now: Date.now(), error: null, lastSnapshot: attempt.snapshotAt ?? null, flagged: {} });
+  useExam.setState({ session: { test, attempt, projectId }, counters, phase: 'running', now: Date.now(), error: null, lastSnapshot: attempt.snapshotAt ?? null, flagged: {}, ready: false });
   try { localStorage.setItem(KEY, attempt.id); } catch { /* ignore */ }
   setLearningPaused(!test.settings.allowLearning);
   log(resumed ? 'resumed' : 'started', resumed ? 'The test page was reloaded or reopened.' : undefined);
@@ -173,11 +174,11 @@ export async function submit(auto = false) {
     detach?.();
     if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
   } catch (e) {
-    useExam.setState({ phase: 'running', error: 'Submitting failed: ' + (e as Error).message + '. Check your connection and press Submit again.' });
+    useExam.setState({ phase: 'running', ready: false, error: 'Submitting failed: ' + (e as Error).message + '. Check your connection and press Submit again.' });
   }
 }
 
 /** Close the finished-test panel. */
-export function closeExam() { detach?.(); setLearningPaused(false); useExam.setState({ session: null, phase: 'idle', counters: zeroCounters(), flagged: {} }); }
+export function closeExam() { detach?.(); setLearningPaused(false); useExam.setState({ session: null, phase: 'idle', counters: zeroCounters(), flagged: {}, ready: false }); }
 
 export function requestFullscreen() { if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.().catch(() => undefined); }

@@ -42,13 +42,15 @@ To refresh them: `npm run build:portable && node tests/e2e/screens.cjs docs/scre
 
 Teachers sign in with a teacher account and use the **Teacher** button in the title bar.
 
-1. **Classes:** create a class and give students its code (File > Tests > Join class).
+1. **Classes (optional):** create a class and give students with accounts its code (File > Tests > Join class) to follow their study progress. Tests do not need classes or accounts.
 2. **Tests:** New test, then either **Use a ready-made test** (any of the eleven samples; Core, Extended or Full paper) or add tasks from the task bank (every sample, or a blank database) and your own. Values in ready-made tasks are picked from the data each time. **Build a model answer and try the key** checks the marking before students see it. Under **School and paper**, add the school name and logo, set the paper's total marks (Spread the marks scales the tasks to it) and choose what students fill in before starting (Class, Section, ...). Save. **Paper** prints the question paper (PDF or Word) to hand out before or during the test, and the mark scheme. Then **Open** the test and give students the test code.
 3. **Live monitor:** see who is working, time left, tab switches, full-screen exits, pastes, active/idle time and progress; open a student's timeline or a copy of their database.
 4. **Results:** Mark all, adjust marks and add comments, export CSV, print a **mark sheet** (every checkpoint for every student) and each student's **marked paper** (marks awarded for each checkpoint, with the reason) as PDF, see which tasks the class found hard, then **Release results**.
 5. **Student progress:** per class, how much time each student spends actively working, focus, practical steps, quiz accuracy, trophies, test marks and the trend between tests.
 
-Students: File > Tests, enter the code, read the rules and start. Work saves to the teacher automatically; Submit when finished (it hands in automatically at the end). Results appear under File > Tests when released, with a printable result sheet.
+Students do not need an account. They open the student link (`https://dbwow.vercel.app/?take`, shown in Teacher > Tests; `?take=CODE` fills in the code), type their full name, class and section and the test code, tick the pledge not to cheat, and press **Take the test**. DBWOW turns red, with a bar across the top showing the time left. Work saves to the teacher automatically. When they press Submit, DBWOW turns green while they confirm, and stays green once the test is handed in (it is handed in automatically when time runs out). Each test can have a start window: students can start only between the teacher's start time and last time to start; anyone already working keeps their full time. Results of tests taken in that browser appear under File > Tests when released, with a printable result sheet.
+
+Firebase setup for tests without accounts: Authentication > Sign-in method > Anonymous > Enable, and publish the current `firestore.rules`.
 
 Teacher accounts: the address in `src/cloud/config.ts` (`TEACHER_EMAILS`, also in `firestore.rules`) once verified, plus anyone a teacher adds. Publish `firestore.rules` in the Firebase console after each update.
 

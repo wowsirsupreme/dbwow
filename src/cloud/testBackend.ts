@@ -7,10 +7,10 @@
 import type { LearnState } from '@/learning/achievements';
 import type { CloudBackend, CloudDbInfo, CloudUser } from './backend';
 import { MAX_CLOUD_BYTES } from './backend';
-import { newCode, zeroCounters, type Attempt, type AttemptEvent, type ClassInfo, type DayStats, type Member, type SchoolBackend, type StoredGrade, type TestKey, type TestPublic } from './school';
+import { newCode, startWindow, zeroCounters, type Attempt, type AttemptEvent, type ClassInfo, type DayStats, type Member, type SchoolBackend, type StoredGrade, type TestKey, type TestPublic } from './school';
 
 type W = Window & { __DBWOW_TEST_TEACHERS__?: string[] };
-interface UserRec { name: string; email: string; password: string; progress?: string; classIds?: string[] }
+interface UserRec { name: string; email: string; password: string; progress?: string; classIds?: string[]; anonymous?: boolean }
 
 function kv(base: string) {
   const u = (k: string) => `${base}/kv/${encodeURIComponent(k)}`;
@@ -33,7 +33,7 @@ export function createTestBackend(url: string): CloudBackend {
   const current = async (): Promise<CloudUser | null> => {
     const uid = sessionUid(); if (!uid) return null;
     const u = await db.get<UserRec>(`user/${uid}`);
-    return u ? { uid, name: u.name, email: u.email, emailVerified: true } : null;
+    return u ? { uid, name: u.name, email: u.email, emailVerified: true, ...(u.anonymous ? { anonymous: true } : {}) } : null;
   };
   const emit = async () => { const u = await current(); listeners.forEach((l) => l(u)); };
   const need = async () => { const u = await current(); if (!u) throw err('auth/not-signed-in', 'Sign in first.'); return u; };
@@ -87,14 +87,14 @@ export function createTestBackend(url: string): CloudBackend {
     async setTestStatus(id, status) { await needTeacher(); const t = (await db.get<TestPublic>(`test/${id}`))!; await db.set(`test/${id}`, { ...t, status }); },
     async deleteTest(id) { await needTeacher(); await db.del(`test/${id}`); await db.del(`key/${id}`); await db.del(`teststart/${id}`); },
 
-    async startAttempt(t, details) {
+    async startAttempt(t, info) {
       const u = await need(); const id = `${t.id}_${u.uid}`;
       const old = await db.get<Attempt>(`attempt/${id}`);
       if (old) return { attempt: old, resumed: true };
       const fresh = await db.get<TestPublic>(`test/${t.id}`);
-      if (fresh?.status !== 'open') throw err('permission-denied', 'This test is not open.');
+      if (!fresh || startWindow(fresh) !== 'open') throw err('permission-denied', 'This test is not open.');
       const now = Date.now();
-      const a: Attempt = { id, testId: t.id, uid: u.uid, name: u.name, email: u.email, classId: t.classId, status: 'in-progress', startedAt: new Date(now).toISOString(), deadline: new Date(now + t.durationMin * 60000).toISOString(), lastSeen: new Date(now).toISOString(), counters: zeroCounters(), details: details ?? {} };
+      const a: Attempt = { id, testId: t.id, uid: u.uid, name: info?.name ?? u.name, email: u.email, classId: t.classId, status: 'in-progress', startedAt: new Date(now).toISOString(), deadline: new Date(now + t.durationMin * 60000).toISOString(), lastSeen: new Date(now).toISOString(), counters: zeroCounters(), details: info?.details ?? {}, ...(info ? { pledge: { text: info.pledge, at: new Date(now).toISOString() } } : {}) };
       await db.set(`attempt/${id}`, a); return { attempt: a, resumed: false };
     },
     async getAttempt(id) { await need(); return db.get<Attempt>(`attempt/${id}`); },
@@ -150,6 +150,13 @@ export function createTestBackend(url: string): CloudBackend {
     kind: 'test',
     school,
     onUser(cb) { listeners.add(cb); void current().then(cb); return () => listeners.delete(cb); },
+    async signInAsGuest(name) {
+      let uid = sessionUid();
+      if (!uid || !(await db.get(`user/${uid}`))) { uid = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); localStorage.setItem(SESSION, uid); }
+      const rec = await db.get<UserRec>(`user/${uid}`);
+      if (!rec || rec.anonymous) await db.set(`user/${uid}`, { name: name.trim(), email: '', password: '', anonymous: true });
+      await emit(); return (await current())!;
+    },
     async register(name, email, password) {
       const e = email.trim().toLowerCase();
       if (!/^\S+@\S+\.\S+$/.test(e)) throw err('auth/invalid-email');

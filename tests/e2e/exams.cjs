@@ -89,26 +89,36 @@ async function step(name, fn) {
   });
 
   const S = await device('student');
-  await step('Student: must sign in, joins the class, starts the test; learning aids are locked', async () => {
+  await step('Student: joins by the link with no account, full name, class, section, code and pledge; DBWOW turns red with a time bar', async () => {
     const { page } = S;
-    await page.click('[data-testid="bs-tests"]');
-    assert.match(await page.locator('.bs-main, .backstage').first().textContent(), /need to sign in/);
-    await register(page, 'Ama Mensah', 'ama@school.test');
-    await page.click('.rtab:text-is("FILE")').catch(() => undefined);
-    await page.click('[data-testid="bs-tests"]');
-    await page.fill('input[aria-label="Class code"]', classCode);
-    await page.click('[data-testid="join-class"]');
-    await page.waitForSelector('text=You joined Form 3A');
+    await page.goto(URL + (URL.includes('?') ? '&' : '?') + 'take'); await page.waitForTimeout(1500);
+    await page.waitForSelector('[data-testid="take-test"]');
+    assert.ok(!(await page.evaluate(() => location.search.includes('take'))), 'link parameter removed after opening');
+    await page.fill('input[aria-label="Full name"]', 'Ama');
+    await page.fill('input[aria-label="Class"]', 'Form 3'); await page.fill('input[aria-label="Section"]', 'B');
     await page.fill('input[aria-label="Test code"]', testCode);
-    await page.click('[data-testid="find-test"]');
-    await page.waitForSelector('[data-testid="test-intro"]');
+    await page.click('[data-testid="start-test"]');
+    await page.waitForSelector('text=Enter your name in full');
+    await page.fill('input[aria-label="Full name"]', 'Ama  Mensah');
+    await page.click('[data-testid="start-test"]');
+    await page.waitForSelector('text=Tick the pledge');
+    await page.check('[data-testid="pledge"]');
     await page.screenshot({ path: path.join(OUT, 'x2-test-intro.png') });
-    await page.fill('input[aria-label="Class"]', 'Form 3'); await page.fill('input[aria-label="Section"]', 'B'); await page.click('[data-testid="start-test"]');
+    await page.click('[data-testid="start-test"]');
     await page.waitForSelector('[data-testid="exam-panel"]');
     await page.waitForTimeout(600);   // the full-screen request settles (headless browsers may refuse it)
     if (await page.locator('[data-testid="fullscreen-cover"]').count()) { await page.click('[data-testid="return-fullscreen"]'); await page.waitForTimeout(400); }
     assert.match(await page.locator('[data-testid="exam-timer"]').textContent(), /^\s*(29|30):\d\d/);
     assert.equal(await page.locator('.xp-task').count(), 4);
+    assert.ok(await page.evaluate(() => document.documentElement.classList.contains('exam-red')), 'theme is red');
+    assert.match(await page.locator('[data-testid="time-bar"]').textContent(), /(29|30):\d\d left/);
+    const bg = await page.evaluate(() => getComputedStyle(document.querySelector('.titlebar')).backgroundColor);
+    assert.equal(bg, 'rgb(179, 38, 30)');
+    const a = attempts()[0];
+    assert.equal(a.name, 'Ama Mensah'); assert.equal(a.email, '');
+    assert.deepEqual(a.details, { Class: 'Form 3', Section: 'B' });
+    assert.match(a.pledge.text, /responsibility/); assert.ok(a.pledge.at);
+    assert.ok(cloud.dump('user/')[`user/${a.uid}`].anonymous, 'no account was created, only a guest');
     // learning centre closed
     await page.click('.rtab:text-is("HELP")'); await page.click('[data-cmd="help.learning"]');
     await page.waitForTimeout(300);
@@ -149,8 +159,14 @@ async function step(name, fn) {
   await step('Student hands in; the teacher marks, adjusts, releases; the student sees the result', async () => {
     const { page } = S;
     await page.click('[data-testid="submit-test"]');
+    assert.ok(await page.evaluate(() => document.documentElement.classList.contains('exam-green')), 'green while confirming');
+    await page.click('.dlg button:text-is("Keep working")');
+    assert.ok(await page.evaluate(() => document.documentElement.classList.contains('exam-red')), 'back to red');
+    await page.click('[data-testid="submit-test"]');
     await page.click('.dlg button:text-is("Submit")');
     await page.waitForSelector('[data-testid="close-exam"]');
+    assert.ok(await page.evaluate(() => document.documentElement.classList.contains('exam-green')), 'green once handed in');
+    assert.match(await page.locator('[data-testid="time-bar"]').textContent(), /Handed in/);
     assert.equal(attempts()[0].status, 'submitted');
     assert.equal(attempts()[0].score, undefined, 'no mark in the attempt before release');
     const tp = T.page;
@@ -184,15 +200,21 @@ async function step(name, fn) {
     assert.equal(fs.readFileSync(await mine.path()).subarray(0, 5).toString(), '%PDF-');
   });
 
-  await step('A second student reloads mid-test and carries on with the same deadline', async () => {
+  await step('A second student (with an account) reloads mid-test and carries on with the same deadline', async () => {
     const S2 = await device('student2');
     const { page } = S2;
     await register(page, 'Kojo Asante', 'kojo@school.test');
     await page.click('.rtab:text-is("FILE")').catch(() => undefined);
     await page.click('[data-testid="bs-tests"]');
+    await page.fill('input[aria-label="Class code"]', classCode);
+    await page.click('[data-testid="join-class"]');
+    await page.waitForSelector('text=You joined Form 3A');
     await page.fill('input[aria-label="Test code"]', testCode);
     await page.click('[data-testid="find-test"]');
-    await page.fill('input[aria-label="Class"]', 'Form 3'); await page.fill('input[aria-label="Section"]', 'B'); await page.click('[data-testid="start-test"]');
+    await page.waitForSelector('[data-testid="take-test"]');
+    assert.equal(await page.inputValue('input[aria-label="Full name"]'), 'Kojo Asante', 'an account fills in the name');
+    assert.equal(await page.inputValue('input[aria-label="Test code"]'), testCode);
+    await page.fill('input[aria-label="Class"]', 'Form 3'); await page.fill('input[aria-label="Section"]', 'C'); await page.check('[data-testid="pledge"]'); await page.click('[data-testid="start-test"]');
     await page.waitForSelector('[data-testid="exam-panel"]');
     const before = attempts().find((a) => a.email === 'kojo@school.test');
     await page.reload(); await page.waitForTimeout(2500);
@@ -204,14 +226,12 @@ async function step(name, fn) {
     await S2.ctx.close();
   });
 
-  await step('Study analytics: the teacher sees the student\'s activity and test mark', async () => {
-    const days = Object.entries(cloud.dump('day/'));
-    assert.ok(days.length >= 1, 'activity recorded');
+  await step('Study analytics: the teacher sees students with accounts in the class', async () => {
     const tp = T.page;
     await tp.click('.tz-nav:has-text("Student progress")');
     await tp.waitForSelector('[data-testid="student-row"]');
-    const row = tp.locator('[data-testid="student-row"]').filter({ hasText: 'Ama Mensah' });
-    assert.match(await row.textContent(), /83%/, 'latest test mark shown');
+    const row = tp.locator('[data-testid="student-row"]').filter({ hasText: 'Kojo Asante' });
+    assert.equal(await row.count(), 1, 'class member with an account listed');
     await row.locator('button:has-text("Details")').click();
     await tp.waitForSelector('[data-testid="student-detail"] svg');
     await tp.screenshot({ path: path.join(OUT, 'x6-student-progress.png') });
@@ -262,6 +282,36 @@ async function step(name, fn) {
     assert.equal(t.tasks.length, 11);
     assert.equal(t.paper.school, 'Wilpanet Academy'); assert.equal(t.paper.totalMarks, 30); assert.deepEqual(t.paper.details, ['Class', 'Section']);
     assert.equal(t.tasks.reduce((a, x) => a + x.marks, 0), 30);
+  });
+
+  await step('Start window: the test is not available before it opens or after the last time to start', async () => {
+    const tp = T.page;
+    const setWindow = async (opens, closes) => {
+      const row = tp.locator('[data-testid="test-row"]').filter({ hasText: 'Farm' });
+      await row.locator('button:text-is("Edit")').click();
+      await tp.fill('input[aria-label="Opens at"]', opens); await tp.fill('input[aria-label="Closes at"]', closes);
+      await tp.click('[data-testid="save-test"]');
+      await tp.waitForFunction(() => document.querySelectorAll('[data-testid="test-row"]').length === 2);
+    };
+    const local = (ms) => { const d = new Date(ms); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+    await setWindow(local(Date.now() - 3 * 3600e3), local(Date.now() - 3600e3));
+    const row = tp.locator('[data-testid="test-row"]').filter({ hasText: 'Farm' });
+    await row.locator('[data-testid="open-test"]').click();
+    await tp.waitForFunction(() => /Start time over/.test(document.body.textContent));
+    const farm = Object.values(cloud.dump('test/')).find((x) => /Farm/.test(x.title));
+    const S3 = await device('student3'); const page = S3.page;
+    const tryTake = async () => {
+      await page.goto(URL + (URL.includes('?') ? '&' : '?') + 'take=' + farm.code); await page.waitForTimeout(1200);
+      await page.fill('input[aria-label="Full name"]', 'Esi Darko'); await page.fill('input[aria-label="Class"]', 'Form 3'); await page.fill('input[aria-label="Section"]', 'A');
+      await page.check('[data-testid="pledge"]'); await page.click('[data-testid="start-test"]');
+      await page.waitForSelector('.take-box [role="alert"]');
+      return page.locator('.take-box [role="alert"]').textContent();
+    };
+    assert.match(await tryTake(), /no longer available/);
+    await setWindow(local(Date.now() + 3600e3), '');
+    assert.match(await tryTake(), /opens at/);
+    assert.equal(attempts().filter((a) => a.testId === farm.id).length, 0, 'no attempt was created');
+    await S3.ctx.close();
   });
 
   const fails = results.filter((r) => r[0] === 'FAIL').length;

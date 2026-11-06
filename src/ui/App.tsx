@@ -16,7 +16,7 @@ import { DialogLayer, ContextMenuLayer, openDialog, messageBox, errorBox, confir
 import { Ribbon, useCtxBand } from './shell/Ribbon';
 import { PracticalPanel, RankBadge, Toasts, trackEvent, useLearningTracker } from './learning';
 import { AccountButton, takeSharedLink } from './cloud';
-import { ExamPanel } from './exam';
+import { ExamPanel, ExamTimeBar, TakeTestPage, openTakeTest } from './exam';
 import { TeacherDashboard } from './teacher';
 import { examActive, resumeFromStorage, useExam } from '@/exam/session';
 import { startActivity } from '@/cloud/activity';
@@ -174,6 +174,11 @@ export default function App() {
       const shared = await takeSharedLink();
       if (shared) { try { const p = await WowProject.open(shared.bytes); await adopt(p, newId()); useApp.getState().setStatus(`Opened a copy of "${shared.name}".`); } catch (e) { void errorBox(e, 'Could not open the shared database'); } }
       if (!useApp.getState().project) useApp.getState().setBackstage(true);
+      // students arrive by the test link: ?take or ?take=CODE
+      try {
+        const q = new URLSearchParams(location.search);
+        if (q.has('take')) { openTakeTest(q.get('take') ?? ''); q.delete('take'); history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '') + location.hash); }
+      } catch { /* ignore */ }
     })();
     const beforeUnload = () => { void saveNow(); };
     window.addEventListener('beforeunload', beforeUnload);
@@ -333,6 +338,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <ExamTimeBar />
       <TitleBar onSave={() => void ops.save()} />
       {(!project || !backstage) && <Ribbon />}
       <div className="main" style={{ position: 'relative' }}>
@@ -343,6 +349,7 @@ export default function App() {
       </div>
       {project && !inExam && <PracticalPanel openInCentre={(id) => openLearning(`prac:${id}`)} openSample={(id) => void ops.newSample(id)} />}
       <ExamPanel />
+      <TakeTestPage />
       <Toasts />
       <StatusBar />
       <DialogLayer />

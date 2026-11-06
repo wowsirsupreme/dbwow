@@ -62,7 +62,7 @@ export function AccountButton({ onOpenAccount }: { onOpenAccount: () => void }) 
   const { available, ready, user, status, lastSaved, message } = useCloud();
   if (!available) return null;
   if (!ready) return <span className="acct-btn muted"><Cloud size={14} /></span>;
-  if (!user) return <button className="acct-btn" onClick={() => void openAuthDialog('signin')} data-testid="sign-in"><UserCircle2 size={15} /><span className="hide-sm">Sign in to save online</span></button>;
+  if (!user || user.anonymous) return <button className="acct-btn" onClick={() => void openAuthDialog('signin')} data-testid="sign-in"><UserCircle2 size={15} /><span className="hide-sm">Sign in to save online</span></button>;
   const icon = status === 'error' || status === 'offline' ? <CloudOff size={14} /> : status === 'saving' ? <RefreshCw size={13} className="spin" /> : <Cloud size={14} />;
   const tip = status === 'saving' ? 'Saving to your account…' : status === 'saved' ? `Saved to your account at ${lastSaved}` : message ?? 'Signed in';
   return (

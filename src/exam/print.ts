@@ -8,7 +8,7 @@ import { drawSchool } from './paper';
 
 export interface PrintTask { text: string; marks: number; max: number; ok: boolean | null; reason: string; }
 export interface PrintStudent {
-  name: string; email: string; status: string; details?: Record<string, string>; submittedAt?: string; autoSubmitted?: boolean;
+  name: string; email: string; status: string; details?: Record<string, string>; pledgeAt?: string; submittedAt?: string; autoSubmitted?: boolean;
   counters?: Counters;
   score: number | null; max: number; adjust?: number; comment?: string;
   tasks: PrintTask[];
@@ -47,6 +47,7 @@ function studentPages(doc: jsPDF, testTitle: string, s: PrintStudent, first: boo
   const final = s.score === null ? null : Math.max(0, Math.min(s.max, s.score + (s.adjust ?? 0)));
   const lines = [
     `Handed in: ${s.submittedAt ? `${fmtDate(s.submittedAt)}${s.autoSubmitted ? ' (time ran out)' : ''}` : s.status}`,
+    ...(s.pledgeAt ? [`Pledge not to cheat taken: ${fmtDate(s.pledgeAt)}`] : []),
     final === null ? 'Not marked yet.' : `Final mark: ${final} out of ${s.max} (${pct(final, s.max)}%)`,
   ];
   for (const l of lines) { doc.text(clean(l), M, y); y += 15; }

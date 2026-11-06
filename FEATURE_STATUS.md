@@ -183,7 +183,7 @@ Each has fictional records, primary keys, enforced relationships, example querie
 
 | Feature | Status | Notes |
 |---|---|---|
-| Practical test mode (sign-in, code, timer, autosave, submit, resume after reload) | Tested | |
+| Practical test mode: join by link without an account (full name, class, section, code, pledge), start window, red while working and green when ready to submit or handed in, time-left bar, autosave, submit, resume after reload | Tested | Needs Anonymous sign-in switched on in Firebase. |
 | Marking checks (tables, fields, keys, records, validation, relationships, query results, parameter queries, forms, reports, custom SQL) | Tested | Sorted answers accept rows that tie on the sort field in any order. |
 | Ready-made tests for all 11 samples (Core 9 tasks, Extended 9 tasks, Full paper 20 tasks) | Tested | Values are picked from the data each time; every test comes with model answers. Unit tests check that the model answer earns full marks and the starting database none, for every sample. |
 | Task bank for every sample (20 tasks each) and for a blank database | Tested | |

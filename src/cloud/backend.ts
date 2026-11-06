@@ -6,7 +6,7 @@
 // change without touching the designers.
 import type { LearnState } from '@/learning/achievements';
 
-export interface CloudUser { uid: string; name: string; email: string; emailVerified?: boolean; }
+export interface CloudUser { uid: string; name: string; email: string; emailVerified?: boolean; /** A test-taker without an account. */ anonymous?: boolean; }
 export interface CloudDbInfo { id: string; name: string; modified: string; size: number; shareId?: string; }
 export interface SharedDb { id: string; name: string; ownerName: string; modified: string; size: number; bytes: Uint8Array; }
 
@@ -16,6 +16,8 @@ export interface CloudBackend {
   register(name: string, email: string, password: string): Promise<CloudUser>;
   signIn(email: string, password: string): Promise<CloudUser>;
   signInWithGoogle?(): Promise<CloudUser>;
+  /** Sign in without an account (for taking a test); keeps the same guest if one exists in this browser. */
+  signInAsGuest?(name: string): Promise<CloudUser>;
   resetPassword(email: string): Promise<void>;
   sendVerification?(): Promise<void>;
   /** Reload the signed-in user (after verifying the email address). */
@@ -52,7 +54,8 @@ export function cloudMessage(e: unknown): string {
     'auth/network-request-failed': 'No internet connection. Your work is still saved in this browser.',
     'auth/popup-closed-by-user': 'The Google sign-in window was closed.',
     'auth/unauthorized-domain': 'This website is not yet allowed to sign in. The teacher must add it under Firebase > Authentication > Settings > Authorized domains.',
-    'auth/operation-not-allowed': 'This sign-in method is not switched on in Firebase (Authentication > Sign-in method).',
+    'auth/operation-not-allowed': 'This sign-in method is not switched on in Firebase (Authentication > Sign-in method). For tests without accounts, the teacher must switch on Anonymous.',
+    'auth/admin-restricted-operation': 'Taking tests without an account is not switched on yet. The teacher must switch on Anonymous sign-in in Firebase (Authentication > Sign-in method).',
     'permission-denied': 'The cloud refused this request. The Firestore security rules may not be published yet.',
     'unavailable': 'The cloud is not reachable right now. Your work is still saved in this browser.',
     'resource-exhausted': 'The cloud storage quota has been reached.',

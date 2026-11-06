@@ -79,7 +79,7 @@ export async function deleteChunks(c: Ctx, base: string[], gen: string, n: numbe
 
 export function createFirebaseBackend(config: FirebaseConfig): CloudBackend {
   const init = () => firebaseContext(config);
-  const toUser = (u: { uid: string; displayName: string | null; email: string | null; emailVerified?: boolean } | null): CloudUser | null => (u ? { uid: u.uid, name: u.displayName || (u.email ?? '').split('@')[0] || 'Student', email: u.email ?? '', emailVerified: !!u.emailVerified } : null);
+  const toUser = (u: { uid: string; displayName: string | null; email: string | null; emailVerified?: boolean; isAnonymous?: boolean } | null): CloudUser | null => (u ? { uid: u.uid, name: u.displayName || (u.email ?? '').split('@')[0] || 'Student', email: u.email ?? '', emailVerified: !!u.emailVerified, ...(u.isAnonymous ? { anonymous: true } : {}) } : null);
   const me = async () => { const c = await init(); const u = c.auth.currentUser; if (!u) throw Object.assign(new Error('Sign in first.'), { code: 'auth/not-signed-in' }); return { ...c, uid: u.uid, user: toUser(u)! }; };
 
   return {
@@ -89,6 +89,13 @@ export function createFirebaseBackend(config: FirebaseConfig): CloudBackend {
       let unsub: (() => void) | null = null; let dead = false;
       void init().then((c) => { if (!dead) unsub = c.m.auth.onAuthStateChanged(c.auth, (u) => cb(toUser(u))); }).catch(() => cb(null));
       return () => { dead = true; unsub?.(); };
+    },
+    async signInAsGuest(name) {
+      const c = await init();
+      let u = c.auth.currentUser;
+      if (!u) u = (await c.m.auth.signInAnonymously(c.auth)).user;
+      if (u.isAnonymous && u.displayName !== name.trim()) await c.m.auth.updateProfile(u, { displayName: name.trim() });
+      return { ...toUser(u)!, name: u.isAnonymous ? name.trim() : toUser(u)!.name };
     },
     async register(name, email, password) {
       const c = await init();

@@ -25,7 +25,7 @@ export function startActivity() {
   for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'mousemove']) window.addEventListener(ev, input, { passive: true, capture: true });
 
   setInterval(() => {
-    if (!useCloud.getState().user) return;
+    if (!useCloud.getState().user || useCloud.getState().user?.anonymous) return;
     if (document.hidden) add('hiddenSec', TICK);
     else if (Date.now() - lastInput < 60000) add('activeSec', TICK);
     else add('idleSec', TICK);
@@ -52,7 +52,7 @@ export function startActivity() {
 
 export async function flush() {
   const be = getBackend();
-  if (!be?.school || !useCloud.getState().user) return;
+  if (!be?.school || !useCloud.getState().user || useCloud.getState().user?.anonymous) return;
   const inc = pending; pending = {};
   if (!Object.values(inc).some(Boolean)) return;
   try { await be.school.addDay(today(), inc, totalXp(useLearning.getState().progress)); }

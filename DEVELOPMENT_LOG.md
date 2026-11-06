@@ -1,5 +1,15 @@
 # DBWOW Development Log
 
+## 6 November 2026 — Release 0.7.0: tests without accounts, start window, pledge, red and green test screen
+
+* Students no longer need to register to take a test. They open the student link (?take, or ?take=CODE), enter their full name (first name and surname are required), class and section (or whatever the teacher asks for), the test code, and tick a pledge not to cheat or commit any misconduct and to take responsibility for it. DBWOW signs them in as a guest (Firebase Anonymous Authentication), so the work, monitoring and marks work as before; a reload carries on in the same browser. Students with accounts can still take tests; their name is filled in.
+* Start window: the teacher sets when students can start and the last time to start. Before it the test says when it opens; after it the test is no longer available. Anyone already working keeps their full time. Enforced in the Firestore rules (2 minutes' grace for clock differences).
+* During a test DBWOW turns red. When the student presses Submit it turns green while they confirm (red again if they keep working), and stays green once the work is handed in, by them or automatically at the end of time. A bar across the top of the window shows the time left.
+* The pledge and when it was taken are stored with the attempt and printed on the marked paper. The Tests list shows the student link and each test's start window.
+* Guests: no study analytics, cloud saving or progress sync; File > Tests shows the results of tests taken in that browser.
+* Firebase: switch on Anonymous sign-in and publish the updated firestore.rules.
+* Tests: exams.cjs is now 8 steps (guest join with validation of name and pledge, red/green colours and time bar, an account holder, start window before and after).
+
 ## 6 November 2026 — Release 0.6.2: school name and logo, paper total, student details, more report tasks
 
 * School and paper settings in the test editor: school name and logo (any PNG or JPEG, reduced to a small PNG) printed at the top of question papers, mark schemes, mark sheets and marked papers; the paper's total marks, with "Spread the marks" to scale task marks to that total (whole marks, at least 1 each; a test cannot be saved while they disagree); and the details students fill in before starting (default Class and Section; any list, e.g. Index number). The school name, logo and detail list are remembered for the next test.

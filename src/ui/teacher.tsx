@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDown, ArrowUp, BarChart3, CheckCircle2, ClipboardList, Copy, Download, Eye, Plus, Printer, RefreshCw, Trash2, Users, Wand2, XCircle } from 'lucide-react';
 import { cloudMessage } from '@/cloud/backend';
 import { getBackend, useCloud } from '@/cloud/sync';
-import { DEFAULT_DETAILS, newCode, today, zeroCounters, type PaperSettings, type Attempt, type AttemptEvent, type ClassInfo, type DayStats, type Member, type StoredGrade, type TestKey, type TestPublic } from '@/cloud/school';
+import { DEFAULT_DETAILS, startWindow, newCode, today, zeroCounters, type PaperSettings, type Attempt, type AttemptEvent, type ClassInfo, type DayStats, type Member, type StoredGrade, type TestKey, type TestPublic } from '@/cloud/school';
 import { describeCheck, grade, type Check, type ExamTask, type GradeResult } from '@/exam/checks';
 import { WowProject, uid } from '@/engine/project';
 import { SAMPLE_LIST, buildSample, type SampleId } from '@/engine/samples';
@@ -171,6 +171,13 @@ function PaperDialog({ close }: { close: (v: { what: 'paper' | 'scheme'; fmt: 'p
   );
 }
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** Milliseconds to the value of a datetime-local input (local time), and back. */
+const toLocal = (ms?: number) => { if (!ms) return ''; const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+const fromLocal = (v: string) => (v ? new Date(v).getTime() : 0);
+const whenShort = (ms: number) => new Date(ms).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+export const studentLink = () => `${location.origin}${location.pathname}?take`;
+
 // ---------------------------------------------------------------- tests list
 function TestsList({ tests, classes, go, reload }: { tests: TestPublic[]; classes: ClassInfo[]; go: (s: Section) => void; reload: () => void }) {
   const school = getBackend()!.school!;
@@ -178,6 +185,11 @@ function TestsList({ tests, classes, go, reload }: { tests: TestPublic[]; classe
   return (
     <div>
       <div className="tz-head"><h1>Practical tests</h1><button className="btn btn-primary" data-testid="new-test" onClick={() => go({ k: 'edit', id: null })}><Plus size={13} /> New test</button></div>
+      <div className="banner info mb-2" style={{ border: '1px solid #c5d9f1' }}>
+        Student link (no account needed): <b className="mono" data-testid="student-link">{studentLink()}</b>{' '}
+        <button className="btn btn-sm" onClick={() => { void navigator.clipboard?.writeText(studentLink()); }}><Copy size={12} /> Copy</button>
+        <div className="small mt-1">Students open the link, type their full name, class and section and the test code, and take the pledge. Adding <span className="mono">=CODE</span> to the link fills in the code for them.</div>
+      </div>
       {!tests.length && <p className="muted">No tests yet. A test is a set of tasks students complete in a database; DBWOW marks them against your marking key.</p>}
       <table className="tz-table"><thead><tr><th>Test</th><th>Class</th><th>Time</th><th>Marks</th><th>Code</th><th>Status</th><th /></tr></thead><tbody>
         {tests.map((t) => (
@@ -185,7 +197,8 @@ function TestsList({ tests, classes, go, reload }: { tests: TestPublic[]; classe
             <td><b>{t.title}</b><div className="small muted">{t.tasks.length} tasks{t.resultsReleased ? ' · results released' : ''}</div></td>
             <td>{cname(t.classId)}</td><td>{t.durationMin} min</td><td>{t.tasks.reduce((s, x) => s + x.marks, 0)}</td>
             <td><b className="mono" data-testid="test-code">{t.code}</b></td>
-            <td><span className={'tag ' + (t.status === 'open' ? 'ok' : '')}>{t.status === 'open' ? 'Open' : t.status === 'closed' ? 'Closed' : 'Draft'}</span></td>
+            <td><span className={'tag ' + (startWindow(t) === 'open' ? 'ok' : '')}>{t.status !== 'open' ? (t.status === 'closed' ? 'Closed' : 'Draft') : startWindow(t) === 'early' ? 'Opens later' : startWindow(t) === 'closed' ? 'Start time over' : 'Open'}</span>
+              {(t.opensAtMs || t.closesAtMs) ? <div className="small muted">{t.opensAtMs ? `from ${whenShort(t.opensAtMs)}` : ''}{t.closesAtMs ? ` until ${whenShort(t.closesAtMs)}` : ''}</div> : null}</td>
             <td className="tz-actions">
               {t.status !== 'open' ? <button className="btn btn-sm btn-primary" data-testid="open-test" onClick={async () => { await school.setTestStatus(t.id, 'open'); reload(); }}>Open</button> : <button className="btn btn-sm" onClick={async () => { if (await confirmBox('Close this test? Students who have not started cannot start; anyone working can still submit.')) { await school.setTestStatus(t.id, 'closed'); reload(); } }}>Close</button>}
               <button className="btn btn-sm" onClick={() => go({ k: 'monitor', id: t.id })} data-testid="monitor-test">Live monitor</button>
@@ -326,6 +339,7 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
     setErr(null);
     if (!t.title.trim()) { setErr('Give the test a title.'); return; }
     if (!tasks.length) { setErr('Add at least one task.'); return; }
+    if (t.opensAtMs && t.closesAtMs && t.closesAtMs <= t.opensAtMs) { setErr('The last time to start must be after the start time.'); return; }
     const want = t.paper?.totalMarks;
     if (want && want !== marks) { setErr(`The tasks add up to ${marks} marks but the paper's total is ${want}. Press "Spread the marks" or change the task marks.`); return; }
     const bad = tasks.findIndex((x) => !x.text.trim());
@@ -340,7 +354,7 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
       if (t.start.kind === 'file' && startFrom === 'ready' && readyBytes) { bytes = readyBytes; start = { kind: 'file', name: t.start.name, size: bytes.length }; }
       const paper: PaperSettings = { school: t.paper?.school.trim() ?? '', details: (t.paper?.details ?? DEFAULT_DETAILS).map((x) => x.trim()).filter(Boolean), ...(t.paper?.logo ? { logo: t.paper.logo } : {}), ...(t.paper?.totalMarks ? { totalMarks: t.paper.totalMarks } : {}) };
       try { localStorage.setItem(PAPER_KEY, JSON.stringify({ school: paper.school, logo: paper.logo, details: paper.details })); } catch { /* ignore */ }
-      const pub: TestPublic = { ...t, paper, start, tasks: tasks.map(({ id: tid, text, marks: m }) => ({ id: tid, text: text.trim(), marks: m })) };
+      const pub: TestPublic = { ...t, opensAtMs: t.opensAtMs || 0, closesAtMs: t.closesAtMs || 0, paper, start, tasks: tasks.map(({ id: tid, text, marks: m }) => ({ id: tid, text: text.trim(), marks: m })) };
       const key: TestKey = { tasks: tasks.map(({ id: tid, check }) => ({ id: tid, check })) };
       const newId = await school.saveTest(pub, key, bytes);
       done(newId);
@@ -356,6 +370,8 @@ function TestEditor({ id, classes, done }: { id: string | null; classes: ClassIn
         <label>Title<input value={t.title} onChange={(e) => setT({ ...t, title: e.target.value })} aria-label="Test title" /></label>
         <label>Class<select value={t.classId ?? ''} onChange={(e) => setT({ ...t, classId: e.target.value || null })} aria-label="Class"><option value="">Any student with the code</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label>Time allowed (minutes)<input type="number" min={5} max={300} value={t.durationMin} onChange={(e) => setT({ ...t, durationMin: Math.max(1, Number(e.target.value) || 1) })} aria-label="Duration" /></label>
+        <label>Students can start from<input type="datetime-local" value={toLocal(t.opensAtMs)} onChange={(e) => setT({ ...t, opensAtMs: fromLocal(e.target.value) })} aria-label="Opens at" /><span className="small muted">Leave empty to allow starting as soon as the test is open.</span></label>
+        <label>Last time to start<input type="datetime-local" value={toLocal(t.closesAtMs)} onChange={(e) => setT({ ...t, closesAtMs: fromLocal(e.target.value) })} aria-label="Closes at" /><span className="small muted">After this the test is not available. Anyone already working keeps their full time.</span></label>
         <label>Test code<input value={t.code} onChange={(e) => setT({ ...t, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })} aria-label="Code" /></label>
         <label className="span2">Instructions for students<textarea rows={3} value={t.instructions} onChange={(e) => setT({ ...t, instructions: e.target.value })} aria-label="Instructions" /></label>
         <label>Students start with
@@ -554,7 +570,7 @@ function Monitor({ test, go }: { test?: TestPublic; go: (s: Section) => void }) 
           const g = progress[a.id];
           return (
             <tr key={a.id} className={flags.length ? 'flag' : ''} data-testid="monitor-row" title={flags.join(', ')}>
-              <td><span className={'dot ' + (online ? 'on' : '')} />{a.name}<div className="small muted">{[...Object.values(a.details ?? {}).filter(Boolean), a.email].join(' · ')}</div></td>
+              <td><span className={'dot ' + (online ? 'on' : '')} />{a.name}<div className="small muted">{[...Object.values(a.details ?? {}), a.email].filter(Boolean).join(" · ")}</div></td>
               <td>{a.status === 'submitted' ? <span className="tag ok">{a.autoSubmitted ? 'Time up' : 'Handed in'}</span> : <span className="tag">Working</span>}</td>
               <td>{a.status === 'in-progress' ? secs(Math.max(0, (Date.parse(a.deadline) - now) / 1000)) : '-'}</td>
               <td>{g ? <b>{g.score}/{g.max}</b> : <span className="muted small">-</span>}</td>
@@ -648,7 +664,7 @@ function Results({ test, classes, go, reload }: { test?: TestPublic; classes: Cl
   const printable = (list: Attempt[]): PrintStudent[] => list.map((a) => {
     const g = grades[a.uid];
     return {
-      name: a.name, email: a.email, details: a.details, status: a.status === 'submitted' ? 'handed in' : 'still working', submittedAt: a.submittedAt, autoSubmitted: a.autoSubmitted,
+      name: a.name, email: a.email, details: a.details, pledgeAt: a.pledge?.at, status: a.status === 'submitted' ? 'handed in' : 'still working', submittedAt: a.submittedAt, autoSubmitted: a.autoSubmitted,
       counters: { ...zeroCounters(), ...a.counters }, score: g ? g.score : null, max, adjust: g?.teacherAdjust, comment: g?.comment,
       tasks: test.tasks.map((t) => { const r = g?.tasks.find((x) => x.id === t.id); return { text: t.text, marks: r?.marks ?? 0, max: t.marks, ok: r ? r.ok : null, reason: r?.reason ?? '' }; }),
     };
