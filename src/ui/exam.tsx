@@ -9,7 +9,7 @@ import { cloudMessage } from '@/cloud/backend';
 import { getBackend, useCloud } from '@/cloud/sync';
 import { create } from 'zustand';
 import { DEFAULT_DETAILS, PLEDGE, startWindow, type Attempt, type ClassInfo, type TestPublic } from '@/cloud/school';
-import { beginAttempt, closeExam, examActive, remainingMs, requestFullscreen, snapshot, submit, useExam } from '@/exam/session';
+import { beginAttempt, testDbName, closeExam, examActive, remainingMs, requestFullscreen, snapshot, submit, useExam } from '@/exam/session';
 import { loadProject } from '@/engine/persistence';
 import { WowProject } from '@/engine/project';
 import { useApp } from './store';
@@ -167,6 +167,7 @@ export function ExamPanel() {
         </div>
         {!onTestDb && <div className="xp-warn"><AlertTriangle size={13} /> You are not in the test database. <button className="link" onClick={async () => { const l = await loadProject(session.projectId); if (l) useApp.getState().setProject(await WowProject.open(l.bytes), session.projectId); }}>Go back to it</button></div>}
         {error && <div className="xp-warn">{error}</div>}
+        <div className="xp-db small" data-testid="test-db-name">Work only in your test database: <b>{testDbName(test, session.attempt)}</b>. Do not close or delete it.</div>
         <div className="xp-list">
           {test.instructions && <div className="xp-instr">{test.instructions}</div>}
           {test.tasks.map((t, i) => (

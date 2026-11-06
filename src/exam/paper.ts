@@ -46,9 +46,9 @@ export function questionPaper(info: PaperInfo): Block[] {
     { t: 'fill', labels: ['Name', ...(test.paper?.details ?? DEFAULT_DETAILS), 'Date'] },
     { t: 'h', text: 'Instructions' },
     { t: 'bullets', items: [
-      'Sign in to DBWOW with your own account. Open File > Tests and enter the test code your teacher gives you.',
+      'Open the test link your teacher gives you (no account is needed). Type your full name (first name and surname) and your class details, enter the test code, and tick the pledge.',
       `Read the rules on the screen, then press Start. The ${test.durationMin} minutes begin when you press Start and do not stop if you close the page.`,
-      'Work only in the test database DBWOW opens for you. Use exactly the table, field, query, form and report names given in the tasks.',
+      `DBWOW opens a test database named with your full name and the test title, for example "Ama Mensah - ${test.title}". Work only in that database and do not close or delete it. Use exactly the table, field, query, form and report names given in the tasks.`,
       'Your work is saved automatically. Keep working even if a save message appears; it is kept on this computer as well.',
       `Stay in the DBWOW window${test.settings.requireFullscreen ? ' and keep it in full screen' : ''}. Switching to other tabs or programs, leaving full screen and pasting are recorded and shown to your teacher.`,
       ...(test.settings.allowLearning ? [] : ['The Learning Centre, hints and practical checklists are switched off during the test.']),

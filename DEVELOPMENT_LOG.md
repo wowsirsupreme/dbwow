@@ -1,5 +1,11 @@
 # DBWOW Development Log
 
+## 6 November 2026 — Release 0.7.2: the test database is named after the student and cannot be lost
+
+* The test database is now named with the student's full name and the test title (for example "Ama Mensah - Sports League: Core practical"). The test panel shows the name and tells students to work only in it and not to close or delete it; the question paper says the same.
+* During a test, File > New, Open, Save As, Download, Share, Export and Close are switched off, and the test database cannot be deleted from the Recent list. If it is closed or deleted anyway, DBWOW brings it straight back with the work so far (from memory, this browser, or the last cloud save) and records it for the teacher.
+* Question papers now tell students to join by the test link with their full name, class details, code and pledge.
+
 ## 6 November 2026 — Release 0.7.1: fix "The cloud refused this request" when starting a test
 
 * Starting a test first checks whether the student already has an attempt (to resume it). The security rules only let a student read an attempt whose uid is theirs, and an attempt that does not exist yet has no uid, so Firestore refused the check and the test never started. The rules now allow that check (own(): resource == null or the student's own attempt), and the app also treats a refused check as "no attempt yet", so starting works even before the new rules are published.

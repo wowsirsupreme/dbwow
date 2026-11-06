@@ -7,6 +7,7 @@ import { useCloud } from '@/cloud/sync';
 import { listProjects, type ProjectInfo } from '@/engine/persistence';
 import { SAMPLE_LIST } from '@/engine/samples';
 import { useApp } from '../store';
+import { useExam } from '@/exam/session';
 
 export interface BackstageOps {
   newBlank: () => void; newSample: (id: string) => void; openStored: (id: string) => void; openFile: () => void;
@@ -29,6 +30,8 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { listProjects().then(setRecent).catch((e) => setErr((e as Error).message)); }, [version, page]);
   const back = () => { setBackstage(false); setRibbonTab('home'); };
+  const inTest = useExam((s) => s.phase === 'running' || s.phase === 'submitting');
+  useEffect(() => { if (inTest && (page === 'new' || page === 'open' || page === 'share')) setPage(project ? 'info' : 'tests'); }, [inTest, page, project]);
 
   return (
     <div className="backstage" data-testid="backstage">
@@ -36,15 +39,15 @@ export function Backstage({ ops }: { ops: BackstageOps }) {
         {project && <button className="back" onClick={back} aria-label="Back"><ArrowLeft size={20} /></button>}
         {!project && <div style={{ padding: '6px 22px 16px', fontWeight: 700, fontSize: 18, letterSpacing: 0.5 }}>DBWOW</div>}
         <button className={page === 'info' ? 'active' : ''} disabled={!project} onClick={() => setPage('info')}>Info</button>
-        <button className={page === 'new' ? 'active' : ''} onClick={() => setPage('new')}>New</button>
-        <button className={page === 'open' ? 'active' : ''} onClick={() => setPage('open')}>Open</button>
+        <button className={page === 'new' ? 'active' : ''} disabled={inTest} title={inTest ? 'Not during a test' : undefined} onClick={() => setPage('new')}>New</button>
+        <button className={page === 'open' ? 'active' : ''} disabled={inTest} title={inTest ? 'Not during a test' : undefined} onClick={() => setPage('open')}>Open</button>
         <button disabled={!project} onClick={() => { ops.save(); back(); }}>Save</button>
-        <button disabled={!project} onClick={ops.saveAs}>Save As</button>
-        <button disabled={!project} onClick={ops.downloadCopy}>Download (.dbwow)</button>
-        <button disabled={!project} className={page === 'share' ? 'active' : ''} onClick={() => setPage('share')} data-testid="bs-share">Share</button>
-        <button disabled={!project} onClick={ops.exportDb}>Export</button>
+        <button disabled={!project || inTest} onClick={ops.saveAs}>Save As</button>
+        <button disabled={!project || inTest} onClick={ops.downloadCopy}>Download (.dbwow)</button>
+        <button disabled={!project || inTest} className={page === 'share' ? 'active' : ''} onClick={() => setPage('share')} data-testid="bs-share">Share</button>
+        <button disabled={!project || inTest} onClick={ops.exportDb}>Export</button>
         <button disabled={!project} onClick={ops.print}>Print</button>
-        <button disabled={!project} onClick={ops.close}>Close</button>
+        <button disabled={!project || inTest} onClick={ops.close}>Close</button>
         <div style={{ flex: 1 }} />
         {cloudOn && <button className={page === 'tests' ? 'active' : ''} onClick={() => setPage('tests')} data-testid="bs-tests">Tests</button>}
         {cloudOn && <button className={page === 'account' ? 'active' : ''} onClick={() => setPage('account')} data-testid="bs-account"><Cloud size={14} style={{ display: 'inline', marginRight: 6 }} />{cloudUser ? 'Account' : 'Sign in / Register'}</button>}

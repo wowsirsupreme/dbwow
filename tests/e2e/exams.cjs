@@ -133,6 +133,16 @@ async function step(name, fn) {
       for (const n of ['Ama', 'Kofi', 'Esi', 'Yaw', 'Akua']) p.insertRecord('Students', { FirstName: n, LastName: 'Test' });
       p.db.notify();
     });
+    // closing the test database brings it straight back
+    assert.match(await page.locator('[data-testid="test-db-name"]').textContent(), /Ama Mensah - Student table practical/);
+    const examId = await page.evaluate(() => window.__DBWOW__.store.getState().projectId);
+    await page.evaluate(async () => { const st = window.__DBWOW__.store.getState(); await window.__DBWOW__.deleteProject?.(st.projectId); st.setProject(null, null); });
+    await page.waitForFunction((id) => window.__DBWOW__.store.getState().projectId === id, examId, { timeout: 5000 });
+    assert.equal(await page.evaluate(() => window.__DBWOW__.store.getState().project.tables().some((t) => t.name === 'Students')), true, 'work kept');
+    await page.click('.rtab:text-is("FILE")');
+    assert.ok(await page.locator('.bs-side button:text-is("Open")').isDisabled(), 'Open is off during the test');
+    assert.ok(await page.locator('.bs-side button:text-is("Close")').isDisabled(), 'Close is off during the test');
+    await page.click('.bs-side .back');
     for (let i = 0; i < 3; i++) { await hide(page); await page.waitForTimeout(150); }
     await page.evaluate(() => { const dt = new DataTransfer(); dt.setData('text/plain', 'x'.repeat(300)); document.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true })); });
     await page.click('.xp-foot button:has-text("Save now")');

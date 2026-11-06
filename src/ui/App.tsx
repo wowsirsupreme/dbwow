@@ -146,6 +146,7 @@ export default function App() {
     },
     close: async () => { if (await confirmCloseAll()) { await saveNow(); rememberLast(null); useApp.getState().setProject(null, null); useApp.getState().setBackstage(true); } },
     deleteStored: async (id, name) => {
+      if (/^exam-/.test(id) && examActive()) { void messageBox('This is your test database. It cannot be deleted during the test.', 'Delete'); return; }
       if (!(await confirmBox(`Permanently delete "${name}" from this browser?\n\nDownload a copy first if you want to keep it.`, { danger: true }))) return;
       await deleteProject(id);
       if (id === useApp.getState().projectId) { rememberLast(null); useApp.getState().setProject(null, null); useApp.getState().setBackstage(true); }
@@ -157,7 +158,7 @@ export default function App() {
 
   useEffect(() => { setDownloadNotifier((m) => void messageBox(m, 'Save file', 'warn')); }, []);
   // test/inspection hook (used by the automated browser acceptance tests)
-  useEffect(() => { (window as unknown as { __DBWOW__: unknown }).__DBWOW__ = { store: useApp }; }, []);
+  useEffect(() => { (window as unknown as { __DBWOW__: unknown }).__DBWOW__ = { store: useApp, deleteProject }; }, []);
 
   // boot: reopen the last database
   useEffect(() => {

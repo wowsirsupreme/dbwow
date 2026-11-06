@@ -11,6 +11,9 @@ import type { Attempt, AttemptEvent, Counters, TestPublic } from '@/cloud/school
 import { zeroCounters } from '@/cloud/school';
 
 const KEY = 'dbwow.exam';
+/** The test database is named after the student and the test, e.g. "Ama Mensah - Sports League: Core practical". */
+export const testDbName = (t: TestPublic, a: Attempt) => `${a.name} - ${t.title}`;
+let testProject: WowProject | null = null;   // the test database in memory, kept even if the student closes or deletes it
 export interface ExamSession { test: TestPublic; attempt: Attempt; projectId: string; }
 interface ExamStore {
   session: ExamSession | null;
@@ -54,7 +57,8 @@ export async function beginAttempt(test: TestPublic, attempt: Attempt, resumed: 
     else p = await WowProject.create(test.title);
   }
   const bytes = p.db.export();
-  await saveProject({ id: projectId, name: `${test.title} (test)`, bytes, modified: new Date().toISOString(), size: bytes.length });
+  await saveProject({ id: projectId, name: testDbName(test, attempt), bytes, modified: new Date().toISOString(), size: bytes.length });
+  testProject = p;
   useApp.getState().setProject(p, projectId);
   useApp.getState().setBackstage(false);
   const counters = { ...zeroCounters(), ...attempt.counters };
@@ -73,6 +77,7 @@ export async function resumeFromStorage(): Promise<boolean> {
   let id: string | null = null;
   try { id = localStorage.getItem(KEY); } catch { return false; }
   const school = getBackend()?.school; if (!id || !school) return false;
+  if (useExam.getState().session?.attempt.id === id) return true;   // already running (started in this page)
   try {
     const a = await school.getAttempt(id);
     if (!a || a.status !== 'in-progress') { localStorage.removeItem(KEY); return false; }
@@ -102,8 +107,11 @@ function attach() {
   for (const ev of ['pointerdown', 'keydown', 'wheel', 'mousemove']) window.addEventListener(ev, onInput, { passive: true, capture: true });
   const unsubApp = useApp.subscribe((s, prev) => {
     const sess = useExam.getState().session; if (!sess) return;
+    if (s.projectId === sess.projectId && s.project) testProject = s.project;
     if (s.version !== prev.version && s.projectId === sess.projectId) { bump('actions'); dirtySince ??= Date.now(); }
-    if (s.projectId !== sess.projectId && !leftDbLogged) { leftDbLogged = true; log('left-test-database', `Opened ${s.project?.name ?? 'another database'}.`); }
+    if (s.projectId !== sess.projectId && !leftDbLogged) { leftDbLogged = true; log('left-test-database', s.project ? `Opened ${s.project.name}.` : 'Closed the test database.'); }
+    // during the test only the test database may be open: bring it straight back
+    if (s.projectId !== sess.projectId && useExam.getState().phase === 'running') void backToTestDb();
     if (s.projectId === sess.projectId) leftDbLogged = false;
   });
   const onUnload = () => { log('page-closed'); void flushMonitor(); };
@@ -127,6 +135,22 @@ function attach() {
     window.removeEventListener('beforeunload', onUnload);
     unsubApp(); timers.forEach(clearInterval); timers = []; detach = null;
   };
+}
+
+let returning = false;
+async function backToTestDb() {
+  const sess = useExam.getState().session; if (!sess || returning) return;
+  returning = true;
+  try {
+    let p = testProject;
+    if (!p) { const l = await loadProject(sess.projectId); if (l) p = await WowProject.open(l.bytes); }
+    if (!p) { const snap = await getBackend()?.school?.loadAttemptSnapshot(sess.attempt.id).catch(() => null); if (snap) p = await WowProject.open(snap); }
+    if (!p || useApp.getState().projectId === sess.projectId) return;
+    const bytes = p.db.export();   // put it back in this browser too, in case it was deleted
+    await saveProject({ id: sess.projectId, name: testDbName(sess.test, sess.attempt), bytes, modified: new Date().toISOString(), size: bytes.length });
+    useApp.getState().setProject(p, sess.projectId);
+    useApp.getState().setStatus('During the test only your test database can be open.');
+  } finally { returning = false; }
 }
 
 /** Send counters and buffered events to the cloud. */
@@ -161,8 +185,8 @@ export async function submit(auto = false) {
   log(auto ? 'auto-submitted' : 'submitted', auto ? 'Time ran out.' : undefined);
   // make sure the test database is the one being saved
   if (useApp.getState().projectId !== s.session.projectId) {
-    const local = await loadProject(s.session.projectId);
-    if (local) useApp.getState().setProject(await WowProject.open(local.bytes), s.session.projectId);
+    if (testProject) useApp.getState().setProject(testProject, s.session.projectId);
+    else { const local = await loadProject(s.session.projectId); if (local) useApp.getState().setProject(await WowProject.open(local.bytes), s.session.projectId); }
   }
   await snapshot();
   try {
@@ -179,6 +203,6 @@ export async function submit(auto = false) {
 }
 
 /** Close the finished-test panel. */
-export function closeExam() { detach?.(); setLearningPaused(false); useExam.setState({ session: null, phase: 'idle', counters: zeroCounters(), flagged: {}, ready: false }); }
+export function closeExam() { testProject = null; detach?.(); setLearningPaused(false); useExam.setState({ session: null, phase: 'idle', counters: zeroCounters(), flagged: {}, ready: false }); }
 
 export function requestFullscreen() { if (!document.fullscreenElement) void document.documentElement.requestFullscreen?.().catch(() => undefined); }

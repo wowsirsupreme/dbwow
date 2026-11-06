@@ -621,3 +621,4 @@ label.chk { flex-direction: row !important; align-items: center; gap: 6px; }
 html.exam-red { --accent: #b3261e; --accent-dark: #8c1d17; --accent-light: #f6d9d7; --accent-soft: #fcefee; --sel: #f3cfcc; --sel-strong: #e7a29c; }
 html.exam-green { --accent: #2e7d32; --accent-dark: #1f5e23; --accent-light: #d7ecd8; --accent-soft: #eef7ee; --sel: #cfe8d0; --sel-strong: #9fd0a2; }
 html.exam-red .xp-head, html.exam-green .xp-head { background: var(--accent); color: #fff; }
+.xp-db { padding: 6px 10px; background: var(--accent-soft); border-bottom: 1px solid var(--line-soft); }
